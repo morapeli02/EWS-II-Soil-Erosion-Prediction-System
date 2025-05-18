@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+
+{% block title %}Home - Soil Erosion Platform{% endblock %}
+
+{% block content %}
+        <div class="container mt-5">
+            <h1>Manage Users</h1>
+            <form method="POST">
+                <div class="mb-3">
+                    <label for="username" class="form-label">Username</label>
+                    <input type="text" name="username" class="form-control" required>
+                </div>
+                <div class="mb-3">
+                    <label for="password" class="form-label">Password</label>
+                    <input type="password" name="password" class="form-control" required>
+                </div>
+                <div class="mb-3">
+                    <label for="role" class="form-label">Role</label>
+                    <select name="role" class="form-select" required>
+                        <option value="admin">Admin</option>
+                        <option value="user">User</option>
+                        <option value="expert">expert</option>
+                    </select>
+                </div>
+                <button type="submit" name="action" value="add" class="btn btn-success">Add User</button>
+            </form>
+
+            <h2 class="mt-5">Existing Users</h2>
+            <ul class="list-group">
+                {% for user in users %}
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                    {{ user.username }} ({{ user.role }})
+                    <form method="POST" class="d-inline">
+                        <input type="hidden" name="user_id" value="{{ user.id }}">
+                        <button type="submit" name="action" value="delete" class="btn btn-danger btn-sm">Delete</button>
+                    </form>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+{% endblock %}

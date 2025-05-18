@@ -1,0 +1,338 @@
+{% extends 'base.html' %}
+
+{% block title %}Visualization{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <h1 class="mb-4">Soil Erosion Visualization</h1>
+    
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }}">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+    
+    {% if processing_message %}
+        <div class="alert alert-info">
+            {{ processing_message }}
+        </div>
+    {% endif %}
+    
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5>Select Parameters</h5>
+        </div>
+        <div class="card-body">
+            <form method="POST">
+                <!-- Model Selection -->
+                <div class="mb-3">
+                    <label class="form-label">Model Selection:</label>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="model_mode" id="rusle_mode" value="rusle" {% if model_mode != 'prediction' %}checked{% endif %}>
+                        <label class="form-check-label" for="rusle_mode">
+                            RUSLE Model (Historical Data)
+                        </label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="model_mode" id="prediction_mode" value="prediction" {% if model_mode == 'prediction' %}checked{% endif %}>
+                        <label class="form-check-label" for="prediction_mode">
+                            Prediction Mode
+                        </label>
+                    </div>
+                </div>
+                
+                <!-- RUSLE MODEL SECTION -->
+                <div id="rusle_section" {% if model_mode == 'prediction' %}style="display: none;"{% endif %}>
+                    <!-- Area of Interest Selection -->
+                    <div class="mb-3">
+                        <label class="form-label">Area of Interest:</label>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="area_option" id="existing_area" value="existing" checked>
+                            <label class="form-check-label" for="existing_area">
+                                Use Existing Area
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="area_option" id="new_area" value="new">
+                            <label class="form-check-label" for="new_area">
+                                Create New Area
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <!-- Existing Areas Selection -->
+                    <div id="existing_area_div" class="mb-3">
+                        <label for="area_id" class="form-label">Select Area:</label>
+                        <select class="form-select" name="area_id" id="area_id">
+                            <option value="" disabled selected>-- Select Area --</option>
+                            {% for area in areas %}
+                                <option value="{{ area.id }}" {% if selected_area_id == area.id and model_mode != 'prediction' %}selected{% endif %}>{{ area.region_name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <!-- Year Selection Options (only visible if an existing area is selected) -->
+                    <div id="year_selection_section" class="mb-3">
+                        <div class="mb-3">
+                            <label class="form-label">Year Selection:</label>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="year_option" id="existing_year" value="existing" checked>
+                                <label class="form-check-label" for="existing_year">
+                                    Select from database
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="year_option" id="new_year" value="new">
+                                <label class="form-check-label" for="new_year">
+                                    Enter new year
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <!-- Year Selection Dropdown -->
+                        <div class="row">
+                            <div class="col-md-6 mb-3" id="existing_year_div">
+                                <label for="year_select" class="form-label">Select Existing Year:</label>
+                                <select class="form-select" name="year_select" id="year_select">
+                                    <option value="" disabled {% if not selected_year %}selected{% endif %}>-- Select Year --</option>
+                                </select>
+                            </div>
+                            
+                            <!-- Custom Year Input -->
+                            <div class="col-md-6 mb-3" id="new_year_div" style="display: none;">
+                                <label for="year_input" class="form-label">Select Year:</label>
+                                <select class="form-select" id="year_input" name="year_input">
+                                    <option value="" disabled selected>-- Select Year --</option>
+                                    {% for year in range(1995, current_year) %}
+                                        <option value="{{ year }}" {% if selected_year == year|string and model_mode != 'prediction' %}selected{% endif %}>{{ year }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- New Area Form -->
+                    <div id="new_area_div" class="mb-3" style="display: none;">
+                        <div class="row">
+                            <div class="col-md-12 mb-3">
+                                <label for="region_name" class="form-label">Region Name:</label>
+                                <input type="text" class="form-control" id="region_name" name="region_name" placeholder="Enter a name for this region">
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="center_lat" class="form-label">Center Latitude:</label>
+                                <input type="number" step="any" class="form-control" id="center_lat" name="center_lat" value="-29.307454563367074">
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="center_lon" class="form-label">Center Longitude:</label>
+                                <input type="number" step="any" class="form-control" id="center_lon" name="center_lon" value="27.485484667653463">
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="distance" class="form-label">Side Length (km):</label>
+                                <input type="number" step="0.1" class="form-control" id="distance" name="distance" value="50">
+                                <small class="text-muted">This will create a square area centered at the coordinates</small>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="new_area_year" class="form-label">Enter Year:</label>
+                                <select class="form-select" id="new_area_year" name="new_area_year">
+                                    <option value="" disabled selected>-- Select Year --</option>
+                                    {% for year in range(1995, current_year) %}
+                                        <option value="{{ year }}">{{ year }}</option>
+                                    {% endfor %}
+                                </select>
+                                <small class="text-muted">Select a year between 1995 and {{ current_year - 1 }}</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- PREDICTION MODE SECTION -->
+                <div id="prediction_section" {% if model_mode != 'prediction' %}style="display: none;"{% endif %}>
+                    <div class="mb-3">
+                        <label for="prediction_area_id" class="form-label">Select Area for Prediction:</label>
+                        <select class="form-select" name="prediction_area_id" id="prediction_area_id">
+                            <option value="" disabled selected>-- Select Area --</option>
+                            {% for area in areas %}
+                                <option value="{{ area.id }}" {% if selected_area_id == area.id and model_mode == 'prediction' %}selected{% endif %}>{{ area.region_name }}</option>
+                            {% endfor %}
+                        </select>
+                        <small class="text-muted">Select an area for soil erosion prediction.</small>
+                    </div>
+                    <div class="mb-3">
+                        <label for="prediction_year" class="form-label">Enter Year for Prediction:</label>
+                        <select class="form-select" id="prediction_year" name="prediction_year">
+                            <option value="" disabled {% if not selected_year or model_mode != 'prediction' %}selected{% endif %}>-- Select Year --</option>
+                            {% for year in range(current_year, 2051) %}
+                                <option value="{{ year }}" {% if selected_year == year and model_mode == 'prediction' %}selected{% endif %}>{{ year }}</option>
+                            {% endfor %}
+                        </select>
+                        <small class="text-muted">Select a year between {{ current_year }} and 2050</small>
+                    </div>
+                </div>
+                
+                <button type="submit" class="btn btn-primary">Visualize Data</button>
+            </form>
+        </div>
+    </div>
+    
+    {% if images %}
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5>
+                {% if model_mode == 'prediction' %}
+                    Prediction Results for Year {{ selected_year }}
+                {% else %}
+                    Visualization Results for Year {{ selected_year }}
+                {% endif %}
+            </h5>
+        </div>
+        <div class="card-body">
+            <div class="row row-cols-1 row-cols-md-3 g-4">
+                {% for image in images %}
+                <div class="col mb-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5>{{ image.label }}</h5>
+                        </div>
+                        {%if image.url%}
+                            <img src="{{ image.url }}" class="img-fluid mb-2" alt="{{ image.label }} Image">
+                        {%endif%}
+                        {%if image.stats_url%}
+                            <img src="{{ image.stats_url }}" class="img-fluid" alt="{{ image.label }} Statistics">
+                        {%endif%}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Model mode toggle
+    const rusleRadio = document.getElementById('rusle_mode');
+    const predictionRadio = document.getElementById('prediction_mode');
+    const rusleSection = document.getElementById('rusle_section');
+    const predictionSection = document.getElementById('prediction_section');
+    
+    rusleRadio.addEventListener('change', function() {
+        if (this.checked) {
+            rusleSection.style.display = 'block';
+            predictionSection.style.display = 'none';
+        }
+    });
+    
+    predictionRadio.addEventListener('change', function() {
+        if (this.checked) {
+            rusleSection.style.display = 'none';
+            predictionSection.style.display = 'block';
+        }
+    });
+    
+    // Area selection toggle
+    const existingAreaRadio = document.getElementById('existing_area');
+    const newAreaRadio = document.getElementById('new_area');
+    const existingAreaDiv = document.getElementById('existing_area_div');
+    const newAreaDiv = document.getElementById('new_area_div');
+    const yearSelectionSection = document.getElementById('year_selection_section');
+    
+    existingAreaRadio.addEventListener('change', function() {
+        if (this.checked) {
+            existingAreaDiv.style.display = 'block';
+            newAreaDiv.style.display = 'none';
+            yearSelectionSection.style.display = 'block';
+        }
+    });
+    
+    newAreaRadio.addEventListener('change', function() {
+        if (this.checked) {
+            existingAreaDiv.style.display = 'none';
+            newAreaDiv.style.display = 'block';
+            yearSelectionSection.style.display = 'none';
+        }
+    });
+    
+    // Year selection toggle
+    const existingYearRadio = document.getElementById('existing_year');
+    const newYearRadio = document.getElementById('new_year');
+    const existingYearDiv = document.getElementById('existing_year_div');
+    const newYearDiv = document.getElementById('new_year_div');
+    
+    existingYearRadio.addEventListener('change', function() {
+        if (this.checked) {
+            existingYearDiv.style.display = 'block';
+            newYearDiv.style.display = 'none';
+        }
+    });
+    
+    newYearRadio.addEventListener('change', function() {
+        if (this.checked) {
+            existingYearDiv.style.display = 'none';
+            newYearDiv.style.display = 'block';
+        }
+    });
+    
+    // If a radio button is already checked on page load, set the correct display
+    if (existingAreaRadio.checked) {
+        existingAreaDiv.style.display = 'block';
+        newAreaDiv.style.display = 'none';
+        yearSelectionSection.style.display = 'block';
+    } else if (newAreaRadio.checked) {
+        existingAreaDiv.style.display = 'none';
+        newAreaDiv.style.display = 'block';
+        yearSelectionSection.style.display = 'none';
+    }
+    
+    if (existingYearRadio.checked) {
+        existingYearDiv.style.display = 'block';
+        newYearDiv.style.display = 'none';
+    } else if (newYearRadio.checked) {
+        existingYearDiv.style.display = 'none';
+        newYearDiv.style.display = 'block';
+    }
+    
+    // Area-based year filtering
+    const areaSelector = document.getElementById('area_id');
+    const yearSelector = document.getElementById('year_select');
+    
+    // JSON data from Flask
+    const areaYears = {{ area_years|tojson }};
+    
+    areaSelector.addEventListener('change', function() {
+        const selectedAreaId = this.value;
+        
+        // Clear existing options
+        yearSelector.innerHTML = '<option value="" disabled selected>-- Select Year --</option>';
+        
+        // If an area is selected, populate available years
+        if (selectedAreaId && areaYears[selectedAreaId]) {
+            const years = areaYears[selectedAreaId];
+            
+            years.forEach(year => {
+                const option = document.createElement('option');
+                option.value = year;
+                option.textContent = year;
+                yearSelector.appendChild(option);
+            });
+            
+            // Enable year selection section
+            yearSelectionSection.style.display = 'block';
+        }
+    });
+    
+    // Initialize form state based on selected values
+    if (areaSelector.value) {
+        const event = new Event('change');
+        areaSelector.dispatchEvent(event);
+    }
+});
+</script>
+{% endblock %}

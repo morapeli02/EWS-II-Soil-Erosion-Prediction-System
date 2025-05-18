@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+
+{% block title %}Home - Soil Erosion Platform{% endblock %}
+
+{% block content %}
+
+<div class="container mt-5 text-center">
+    <h1 class="display-4">Welcome to the Soil Erosion Platform</h1>
+    {%if (logged_in) %}
+    <p class="lead text-muted">Explore tools and resources for effective soil erosion management.</p>
+    <div class="row justify-content-center mt-4">
+        <div class="col-md-6">
+            <div class="d-grid gap-3">
+                <a href="/visualization" class="btn btn-primary btn-lg">View Soil Loss Mapping</a>
+                <a href="/reports" class="btn btn-secondary btn-lg">View Reports</a>
+            </div>
+        </div>
+    </div>
+    {%endif%}
+    <!-- News Section -->
+    <div class="mt-5">
+        <h2 class="text-primary">Latest News</h2>
+        <ul class="list-group">
+            {% for news in news_list %}
+            <li class="list-group-item">
+                <strong>{{ news.title }}</strong>
+                <p class="text-muted small">{{ news.date }}</p>
+                <p>{{ news.content|safe }}</p>
+            </li>
+            {% else %}
+            <li class="list-group-item text-muted">No news available at the moment.</li>
+            {% endfor %}
+        </ul>
+    </div>
+</div>
+{% endblock %}

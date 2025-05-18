@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+
+{% block title %}Manage About- Soil Erosion Platform{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1>About Us</h1>
+    <hr>
+    {% if about_us %}
+        <div class="content">
+            {{ about_us.content|safe }}
+        </div>
+    {% else %}
+        <p>No "About Us" content available. Please check back later!</p>
+    {% endif %}
+</div>
+{% endblock %}

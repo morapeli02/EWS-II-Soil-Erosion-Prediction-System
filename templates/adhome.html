@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Home - Soil Erosion Platform{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <h1>Welcome to the Soil Erosion Platform</h1>
+    <p>Track and manage soil loss effectively.</p>
+
+    {% if session.get('role') == 'admin' %}
+    <div class="card mt-4">
+        <div class="card-header">
+            <h3>Admin Panel</h3>
+        </div>
+        <div class="card-body">
+            <a href="{{ url_for('manage_users') }}" class="btn btn-primary">Manage Users</a>
+            <a href="{{ url_for('manage_news') }}" class="btn btn-secondary">Manage News</a>
+            <!--<a href="{{ url_for('manage_notifications') }}" class="btn btn-warning">Manage Notifications</a> -->
+            <a href="{{ url_for('manage_about') }}" class="btn btn-info">Manage About Us</a>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

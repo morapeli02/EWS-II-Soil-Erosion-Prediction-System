@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Soil Erosion Platform{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/bootstrap.min.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="/static/js/tinymce/tinymce.min.js"></script>
+    <script>
+        tinymce.init({
+            selector: '#content',
+            plugins: 'link lists',
+            toolbar: 'bold italic underline | alignleft aligncenter alignright | bullist numlist | link',
+            menubar: false,
+            height: 300
+        });
+    </script>
+</head>
+<body>
+    <!-- Header -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="/">Home</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                    {% if logged_in %}
+                    <li class="nav-item"><a class="nav-link" href="/visualization">Soil Loss Mapping</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/reports">Reports</a></li>
+                    {% endif %}
+                    {% if session.get('role') == 'admin' %}
+                        <li class="nav-item"> <a class="nav-link" href="{{ url_for('manage_about') }}">Manage About</a></li>
+                    {%else%}
+                        <li class="nav-item"><a class="nav-link" href="{{ url_for('about') }}">About Us</a></li>
+                    {% endif %}
+                </ul>
+                <ul class="navbar-nav">
+                    {% if logged_in %}
+                    <li class="nav-item"><a class="nav-link" href="/logout">Logout</a></li>
+                        {%if username%}
+                    <li class="nav-item"><a class="nav-link">{{username}}</a>
+                        {%endif%}
+                    </li>
+                    
+                    {% else %}
+                    <li class="nav-item"><a class="nav-link" href="/login">Login</a></li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="container mt-4">
+        {% block content %}{% endblock %}
+    </div>
+    <!-- Footer -->
+    <footer class="bg-dark text-light text-center py-3">
+        <p>&copy; 2025 Soil Erosion Platform. All rights reserved.</p>
+        <p class="text-muted small">Stay informed with the latest updates on soil erosion management.</p>
+    </footer>
+
+    <script src="{{ url_for('static', filename='js/bootstrap.bundle.min.js') }}"></script>
+</body>
+</html>

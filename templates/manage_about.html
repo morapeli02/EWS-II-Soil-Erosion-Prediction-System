@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+
+{% block title %}Manage About- Soil Erosion Platform{% endblock %}
+
+{% block content %}
+
+<h1>Manage About Us</h1>
+    <form method="POST">
+        <textarea id="content" name="content">
+            {{ about_us.content | safe if about_us else '' }}
+        </textarea>
+        <br>
+        <button type="submit" name="action" value="save">Save</button>
+        {% if about_us %}
+        <button type="submit" name="action" value="delete" style="background-color: red; color: white;">Delete</button>
+        {% endif %}
+    </form>
+{% endblock %}

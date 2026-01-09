@@ -1,35 +1,191 @@
 {% extends "base.html" %}
 
-{% block title %}Home - Soil Erosion Platform{% endblock %}
+{% block title %}Manage News - Soil Erosion Platform{% endblock %}
 
 {% block content %}
-    <div class="container mt-5">
-        <h1>Manage News</h1>
-        <form method="POST">
-            <div class="mb-3">
-                <label for="title" class="form-label">Title</label>
-                <input type="text" name="title" class="form-control" required>
-            </div>
-            <textarea id="content" name="content">
-                {{ news.content | safe if about_us else '' }}
-            </textarea>
-            <button type="submit" name="action" value="add" class="btn btn-success">Add News</button>
-        </form>
+<style>
+    .news-mgmt-container { color: #000000 !important; }
+    
+    .header-section { margin-bottom: 2.5rem; }
+    .header-section h1 { font-weight: 800; color: #000; letter-spacing: -1px; }
 
-        <h2 class="mt-5">Existing News</h2>
-        <ul class="list-group">
-            {% for news in news_list %}
-            <li class="list-group-item d-flex justify-content-between align-items-center">
-                <div>
-                    <strong>{{ news.title }}</strong>
-                    <p>{{ news.content|safe }}</p>
-                </div>
-                <form method="POST" class="d-inline">
-                    <input type="hidden" name="news_id" value="{{ news.id }}">
-                    <button type="submit" name="action" value="delete" class="btn btn-danger btn-sm">Delete</button>
-                </form>
-            </li>
-            {% endfor %}
-        </ul>
+    /* Composer Card */
+    .composer-card {
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(15px);
+        border: 1px solid rgba(0, 0, 0, 0.1);
+        border-radius: 25px;
+        padding: 2.5rem;
+        box-shadow: 0 15px 35px rgba(0, 0, 0, 0.15);
+        margin-bottom: 4rem;
+        max-width: 100%;
+    }
+
+    /* Headline Input */
+    .title-input {
+        font-size: 1.5rem !important; /* Bigger Title Input */
+        font-weight: 700;
+        border-radius: 12px;
+        border: 2px solid #ddd;
+        color: #000 !important;
+    }
+
+    /* Make CKEditor wider */
+    .cke_chrome {
+        width: 100% !important;
+    }
+
+    .cke_inner {
+        width: 100% !important;
+    }
+
+    /* News Feed Items */
+    .news-feed-item {
+        background: rgba(255, 255, 255, 0.9);
+        border: 1px solid rgba(0, 0, 0, 0.1);
+        border-radius: 20px;
+        padding: 2rem; /* Increased Padding */
+        margin-bottom: 1.8rem;
+        transition: 0.3s;
+    }
+
+    .news-feed-item:hover { background: #fff; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
+
+    /* Enlarged Story Content */
+    .content-preview {
+        font-size: 1.25rem; /* Bigger font for story content */
+        line-height: 1.7; /* Better readability */
+        max-height: 6em; /* Show approx 3-4 lines of bigger text */
+        overflow: hidden;
+        position: relative;
+        transition: max-height 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+        color: #000;
+    }
+
+    .content-preview.expanded {
+        max-height: 5000px; /* Large enough for long articles */
+    }
+
+    /* Toggle & Action Buttons */
+    .toggle-btn {
+        background: none;
+        border: none;
+        color: var(--primary-color);
+        font-weight: 800;
+        font-size: 1rem;
+        padding: 0;
+        margin-top: 15px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .btn-publish {
+        background: #000; color: #fff; border: none;
+        padding: 0.8rem 2.5rem; border-radius: 12px; font-weight: 700;
+        font-size: 1.1rem;
+    }
+
+    .btn-delete-news {
+        background: rgba(220, 53, 69, 0.08); color: #dc3545;
+        border: 1px solid rgba(220, 53, 69, 0.2);
+        padding: 0.6rem 1rem; border-radius: 10px; font-weight: 600;
+    }
+
+    /* Labels */
+    .form-label { font-weight: 800; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 1px; }
+</style>
+
+<div class="container py-4 news-mgmt-container">
+    <div class="header-section">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="/" class="text-black text-decoration-none fw-bold">Dashboard</a></li>
+                <li class="breadcrumb-item active text-muted">Publisher</li>
+            </ol>
+        </nav>
+        <h1><i class="fas fa-edit me-2"></i>Platform Publisher</h1>
     </div>
-    {% endblock %}
+
+    <div class="composer-card">
+        <h3 class="mb-4 text-black fw-bold">Create New Story</h3>
+        <form method="POST">
+            <div class="mb-4">
+                <label class="form-label text-black">Article Headline</label>
+                <input type="text" name="title" class="form-control title-input" placeholder="Enter headline here..." required>
+            </div>
+            <div class="mb-4">
+                <label class="form-label text-black">Story Body</label>
+                <textarea id="content" name="content"></textarea>
+            </div>
+            <div class="text-end">
+                <button type="submit" name="action" value="add" class="btn btn-publish">Publish Article <i class="fas fa-paper-plane ms-2"></i></button>
+            </div>
+        </form>
+    </div>
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="fw-bold text-black mb-0">Active Publications</h2>
+        <span class="badge bg-dark rounded-pill px-3 py-2">{{ news_list|length }} Articles</span>
+    </div>
+
+    <div class="row">
+        {% for news in news_list %}
+        <div class="col-12">
+            <div class="news-feed-item shadow-sm">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div style="flex: 1;">
+                        <h2 class="fw-bold text-black mb-3">{{ news.title }}</h2>
+                        <div id="news-{{ news.id }}" class="content-preview text-black">
+                            {{ news.content|safe }}
+                        </div>
+                        <button onclick="toggleReadMore({{ news.id }})" id="btn-{{ news.id }}" class="toggle-btn">
+                            Read Full Story <i class="fas fa-chevron-down"></i>
+                        </button>
+                    </div>
+                    
+                    <form method="POST" onsubmit="return confirm('Permanently delete this article?');" class="ms-4">
+                        <input type="hidden" name="news_id" value="{{ news.id }}">
+                        <button type="submit" name="action" value="delete" class="btn btn-delete-news" title="Delete Article">
+                            <i class="fas fa-trash-alt"></i>
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<script>
+    function toggleReadMore(id) {
+        const content = document.getElementById(`news-${id}`);
+        const btn = document.getElementById(`btn-${id}`);
+        
+        if (content.classList.contains('expanded')) {
+            content.classList.remove('expanded');
+            btn.innerHTML = 'Read Full Story <i class="fas fa-chevron-down"></i>';
+            // Scroll back to top of item when collapsing
+            content.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        } else {
+            content.classList.add('expanded');
+            btn.innerHTML = 'Collapse Story <i class="fas fa-chevron-up"></i>';
+        }
+    }
+
+    // Initialize CKEditor with larger dimensions
+    if (typeof CKEDITOR !== 'undefined') {
+        CKEDITOR.replace('content', {
+            height: 500, // Increased height
+            width: '100%', // Full width
+            // Setting a larger default style
+            contentsCss: ["body {font-size: 1.2rem; font-family: 'Inter', sans-serif; color: #000;}"],
+            fontSize_defaultLabel: '18px',
+            resize_enabled: true, // Allow manual resizing
+            resize_minWidth: 600,
+            resize_maxWidth: '100%'
+        });
+    }
+</script>
+{% endblock %}

@@ -4,33 +4,187 @@
 
 {% block content %}
 
-<div class="container mt-5 text-center">
-    <h1 class="display-4">Welcome to the Soil Erosion Platform</h1>
-    {%if (logged_in) %}
-    <p class="lead text-muted">Explore tools and resources for effective soil erosion management.</p>
-    <div class="row justify-content-center mt-4">
-        <div class="col-md-6">
-            <div class="d-grid gap-3">
-                <a href="/visualization" class="btn btn-primary btn-lg">View Soil Loss Mapping</a>
-                <a href="/reports" class="btn btn-secondary btn-lg">View Reports</a>
+<style>
+    /* Hero Section with Transition */
+    .hero-section {
+        /* Default fallback image */
+        background-image: linear-gradient(rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.7)), 
+                          url("{{ url_for('static', filename='images/lesotho_erosion1.jpeg') }}");
+        background-size: cover;
+        background-position: center;
+        background-repeat: no-repeat;
+        color: white;
+        padding: 6rem 1rem;
+        margin-bottom: 3rem;
+        border-radius: 0 0 1rem 1rem;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        transition: background-image 1s ease-in-out; /* Smooth fade effect */
+    }
+
+    /* News Styling */
+    .news-card {
+        border: none;
+        border-radius: 12px;
+        background: #fff;
+        margin-bottom: 2rem; /* Spacing between stacked items */
+        border-left: 5px solid #0d6efd; /* Blue accent line on left */
+    }
+
+    .news-content-wrapper {
+        position: relative;
+        overflow: hidden;
+        transition: max-height 0.5s ease;
+    }
+
+    /* Collapsed State */
+    .news-collapsed {
+        max-height: 120px; /* Only show top ~120px */
+    }
+    
+    /* Fade effect at bottom when collapsed */
+    .news-collapsed::after {
+        content: "";
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 40px;
+        background: linear-gradient(transparent, white);
+        pointer-events: none;
+    }
+
+    /* Expanded State */
+    .news-expanded {
+        max-height: 2000px; /* Large enough number to show all content */
+        padding-bottom: 1rem;
+    }
+
+    .news-date {
+        font-size: 0.85rem;
+        color: #6c757d;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+</style>
+
+<div class="hero-section text-center" id="hero-slider">
+    <div class="container">
+        <h1 class="display-3 fw-bold mb-3" style="text-shadow: 2px 2px 4px rgba(0,0,0,0.6);">
+            Soil Erosion Platform
+        </h1>
+        
+        {% if logged_in %}
+            <p class="lead mb-4 text-light opacity-90" style="max-width: 700px; margin: 0 auto; text-shadow: 1px 1px 2px rgba(0,0,0,0.5);">
+                Explore tools and resources for effective soil erosion management in Lesotho.
+            </p>
+            
+            <div class="d-flex justify-content-center gap-3 mt-4">
+                <a href="/visualization" class="btn btn-primary btn-lg px-5 py-3 rounded-pill shadow fw-bold">
+                    View Soil Loss Mapping
+                </a>
+                <a href="/reports" class="btn btn-outline-light btn-lg px-5 py-3 rounded-pill shadow fw-bold">
+                    View Reports
+                </a>
             </div>
-        </div>
-    </div>
-    {%endif%}
-    <!-- News Section -->
-    <div class="mt-5">
-        <h2 class="text-primary">Latest News</h2>
-        <ul class="list-group">
-            {% for news in news_list %}
-            <li class="list-group-item">
-                <strong>{{ news.title }}</strong>
-                <p class="text-muted small">{{ news.date }}</p>
-                <p>{{ news.content|safe }}</p>
-            </li>
-            {% else %}
-            <li class="list-group-item text-muted">No news available at the moment.</li>
-            {% endfor %}
-        </ul>
+        {% else %}
+            <p class="lead mb-4 text-light opacity-90" style="text-shadow: 1px 1px 2px rgba(0,0,0,0.5);">
+                Monitor, analyze, and predict soil erosion patterns with precision.
+            </p>
+            <div class="mt-4">
+                <a href="/login" class="btn btn-primary btn-lg px-5 rounded-pill shadow">Login to Get Started</a>
+            </div>
+        {% endif %}
     </div>
 </div>
+
+<div class="container mb-5">
+    
+    <div class="row mb-4">
+        <div class="col-12 border-bottom pb-2">
+            <h2 class="text-primary fw-bold">
+                Latest News
+            </h2>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-12"> {% for news in news_list %}
+            <div class="card shadow-sm news-card p-4">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h3 class="h4 text-dark fw-bold mb-0">{{ news.title }}</h3>
+                    <span class="news-date">{{ news.date }}</span>
+                </div>
+                
+                <div id="news-content-{{ news.id }}" class="news-content-wrapper news-collapsed text-secondary">
+                    {{ news.content|safe }}
+                </div>
+
+                <div class="mt-3">
+                    <button class="btn btn-sm btn-outline-primary rounded-pill px-3" 
+                            onclick="toggleNews('{{ news.id }}', this)">
+                        Read More <i class="fas fa-chevron-down ms-1"></i>
+                    </button>
+                </div>
+            </div>
+            {% else %}
+            <div class="alert alert-light text-center border shadow-sm py-5">
+                <h4 class="alert-heading text-muted">No News Available</h4>
+                <p class="mb-0 text-muted">Check back later for updates.</p>
+            </div>
+            {% endfor %}
+
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- 1. Background Image Slider ---
+    document.addEventListener("DOMContentLoaded", function() {
+        const heroSection = document.getElementById('hero-slider');
+        // Array of your images (1 to 9)
+        const images = [
+            "{{ url_for('static', filename='images/lesotho_erosion1.jpeg') }}",
+            "{{ url_for('static', filename='images/lesotho_erosion2.jpeg') }}",
+            "{{ url_for('static', filename='images/lesotho_erosion3.jpeg') }}",
+            "{{ url_for('static', filename='images/lesotho_erosion4.jpeg') }}",
+            "{{ url_for('static', filename='images/lesotho_erosion5.jpeg') }}",
+            "{{ url_for('static', filename='images/lesotho_erosion6.jpeg') }}",
+            "{{ url_for('static', filename='images/lesotho_erosion7.jpeg') }}",
+            "{{ url_for('static', filename='images/lesotho_erosion8.jpeg') }}",
+            "{{ url_for('static', filename='images/lesotho_erosion9.jpeg') }}"
+        ];
+
+        let currentIndex = 0;
+
+        function changeBackground() {
+            currentIndex = (currentIndex + 1) % images.length; // Loop back to 0 after 9
+            const nextImage = images[currentIndex];
+            
+            // Apply gradient overlay + new image
+            heroSection.style.backgroundImage = `linear-gradient(rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.7)), url('${nextImage}')`;
+        }
+
+        // Change image every 10 seconds (5000ms)
+        setInterval(changeBackground, 10000);
+    });
+
+    // --- 2. Read More / See Less Toggle ---
+    function toggleNews(newsId, btnElement) {
+        const contentDiv = document.getElementById('news-content-' + newsId);
+        
+        if (contentDiv.classList.contains('news-collapsed')) {
+            // Expand
+            contentDiv.classList.remove('news-collapsed');
+            contentDiv.classList.add('news-expanded');
+            btnElement.innerHTML = 'See Less <i class="fas fa-chevron-up ms-1"></i>';
+        } else {
+            // Collapse
+            contentDiv.classList.remove('news-expanded');
+            contentDiv.classList.add('news-collapsed');
+            btnElement.innerHTML = 'Read More <i class="fas fa-chevron-down ms-1"></i>';
+        }
+    }
+</script>
+
 {% endblock %}

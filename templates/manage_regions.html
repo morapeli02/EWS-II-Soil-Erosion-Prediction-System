@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+
+{% block title %}Region Management - Soil Erosion Platform{% endblock %}
+
+{% block content %}
+<style>
+    .region-mgmt-container { color: #000 !important; }
+    .header-section { margin-bottom: 2.5rem; }
+    .header-section h1 { font-weight: 800; letter-spacing: -1px; }
+
+    .action-card {
+        background: rgba(255, 255, 255, 0.9);
+        backdrop-filter: blur(15px);
+        border: 1px solid rgba(0, 0, 0, 0.1);
+        border-radius: 20px;
+        padding: 2rem;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        position: sticky;
+        top: 120px;
+    }
+
+    .region-table-container {
+        background: rgba(255, 255, 255, 0.85);
+        border-radius: 20px;
+        padding: 1.5rem;
+        border: 1px solid rgba(0, 0, 0, 0.1);
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+    }
+
+    .form-label { font-weight: 700; font-size: 0.85rem; text-transform: uppercase; color: #444; }
+    .form-control { border-radius: 10px; border: 2px solid #eee; font-weight: 500; }
+    
+    .btn-add {
+        width: 100%; border-radius: 10px; font-weight: 700; padding: 0.7rem;
+        background: #000; border: none; transition: 0.3s; color: white;
+    }
+    .btn-add:hover { background: #2ecc71; transform: translateY(-2px); }
+
+    .ee-code { font-family: monospace; font-size: 0.75rem; color: #666; display: block; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+</style>
+
+<div class="container py-4 region-mgmt-container">
+    <div class="header-section">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="/" class="text-decoration-none">Dashboard</a></li>
+                <li class="breadcrumb-item active">Region Management</li>
+            </ol>
+        </nav>
+        <h1><i class="fas fa-map-marker-alt me-2"></i>Manage Regions</h1>
+        <p class="text-muted">Define the geographical areas available for RUSLE and Prediction analysis.</p>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-lg-4">
+            <div class="action-card">
+                <h3 class="fw-bold mb-4">Register New Area</h3>
+                <form method="POST">
+                    <div class="mb-3">
+                        <label class="form-label">Region Name</label>
+                        <input type="text" name="region_name" class="form-control" placeholder="e.g. Maseru District" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Description / Notes</label>
+                        <textarea name="description" class="form-control" placeholder="Describe terrain or soil characteristics..." rows="2"></textarea>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-6">
+                            <label class="form-label">Latitude</label>
+                            <input type="number" step="any" name="center_lat" class="form-control" placeholder="-29.307" required>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label">Longitude</label>
+                            <input type="number" step="any" name="center_lon" class="form-control" placeholder="27.485" required>
+                        </div>
+                    </div>
+                    <div class="mb-4">
+                        <label class="form-label">Square Side (km)</label>
+                        <input type="number" name="distance" class="form-control" value="50" required>
+                    </div>
+                    <button type="submit" name="action" value="add" class="btn btn-add">
+                        Confirm & Generate AOI <i class="fas fa-save ms-1"></i>
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <div class="col-lg-8">
+            <div class="region-table-container">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h4 class="mb-0 fw-bold">Active Analysis Areas</h4>
+                    <span class="badge bg-dark rounded-pill">{{ areas|length }} Regions</span>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Region & Description</th>
+                                <th>EE Geometry</th>
+                                <th class="text-end">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for area in areas %}
+                            <tr>
+                                <td>
+                                    <div class="fw-bold text-dark">{{ area.region_name }}</div>
+                                    <small class="text-muted">{{ area.description or "No description provided." }}</small>
+                                </td>
+                                <td>
+                                    <code class="ee-code" title="{{ area.region_code }}">{{ area.region_code }}</code>
+                                </td>
+                                <td class="text-end">
+                                    {% if confirm_delete_id == area.id %}
+                                        <div class="p-2 border border-danger rounded">
+                                            <p class="small text-danger fw-bold mb-2">Delete all reports too?</p>
+                                            <form method="POST" class="d-inline">
+                                                <input type="hidden" name="area_id" value="{{ area.id }}">
+                                                <input type="hidden" name="force" value="true">
+                                                <button type="submit" name="action" value="delete" class="btn btn-sm btn-danger">Yes, Delete All</button>
+                                            </form>
+                                            <a href="{{ url_for('manage_regions') }}" class="btn btn-sm btn-light">Cancel</a>
+                                        </div>
+                                    {% else %}
+                                        <form method="POST" class="d-inline">
+                                            <input type="hidden" name="area_id" value="{{ area.id }}">
+                                            <button type="submit" name="action" value="delete" class="btn btn-sm btn-outline-danger px-3 rounded-pill">
+                                                <i class="fas fa-trash-alt me-1"></i> Delete
+                                            </button>
+                                        </form>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

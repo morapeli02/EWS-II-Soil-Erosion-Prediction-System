@@ -1,24 +1,185 @@
 {% extends "base.html" %}
 
-{% block title %}Admin Home - Soil Erosion Platform{% endblock %}
+{% block title %}Admin Dashboard - Soil Erosion Platform{% endblock %}
 
 {% block content %}
-<div class="container mt-5">
-    <h1>Welcome to the Soil Erosion Platform</h1>
-    <p>Track and manage soil loss effectively.</p>
+<style>
+    /* Global Text Override for this page to ensure black text */
+    .admin-container {
+        color: #000000 !important;
+    }
+
+    .admin-welcome {
+        margin-bottom: 3rem;
+    }
+
+    .admin-welcome h1 {
+        font-weight: 800;
+        letter-spacing: -1px;
+        /* Dark gradient for the title */
+        background: linear-gradient(90deg, #000, #333);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+
+    .admin-welcome p {
+        color: #333 !important;
+        font-weight: 500;
+    }
+
+    /* Modern Light Glass Card for readability */
+    .glass-card {
+        background: rgba(255, 255, 255, 0.85); /* Much more opaque white */
+        backdrop-filter: blur(15px);
+        border: 1px solid rgba(0, 0, 0, 0.1);
+        border-radius: 20px;
+        transition: all 0.3s ease;
+        height: 100%;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+    }
+
+    .glass-card:hover {
+        background: rgba(255, 255, 255, 0.95);
+        transform: translateY(-10px);
+        border-color: var(--primary-color);
+        box-shadow: 0 15px 40px rgba(0, 0, 0, 0.2);
+    }
+
+    /* Titles and Descriptions in Black */
+    .glass-card h4 {
+        color: #000000 !important;
+        font-weight: 700;
+    }
+
+    .glass-card p {
+        color: #444 !important; /* Dark grey for descriptions */
+        line-height: 1.6;
+    }
+
+    .admin-icon {
+        font-size: 2.5rem;
+        margin-bottom: 1.5rem;
+        display: inline-block;
+        /* Using your primary blue for icons to keep it professional */
+        color: var(--primary-color);
+    }
+
+    .btn-admin-action {
+        width: 100%;
+        padding: 0.8rem;
+        border-radius: 12px;
+        text-transform: uppercase;
+        font-size: 0.85rem;
+        font-weight: 700;
+        letter-spacing: 1px;
+        border: none;
+        transition: 0.3s;
+        text-decoration: none;
+        display: inline-block;
+    }
+
+    /* Button Colors */
+    .btn-manage { 
+        background: #000000; 
+        color: #ffffff !important; 
+    }
+    
+    .btn-manage:hover { 
+        background: var(--primary-color); 
+        color: #ffffff !important;
+        box-shadow: 0 5px 15px rgba(13, 110, 253, 0.4);
+    }
+
+    /* Status Bar Styling */
+    .status-bar {
+        background: rgba(255, 255, 255, 0.9);
+        border: 1px solid rgba(0,0,0,0.1);
+        border-radius: 15px;
+        color: #000 !important;
+    }
+
+    .fade-up {
+        animation: fadeUp 0.6s ease-out forwards;
+        opacity: 0;
+        transform: translateY(20px);
+    }
+
+    @keyframes fadeUp {
+        to { opacity: 1; transform: translateY(0); }
+    }
+</style>
+
+<div class="container py-4 admin-container">
+    <div class="admin-welcome text-center fade-up">
+        <h1 class="display-4">Admin Control Center</h1>
+        <p class="lead">Secure management terminal for the Soil Erosion Platform</p>
+    </div>
 
     {% if session.get('role') == 'admin' %}
-    <div class="card mt-4">
-        <div class="card-header">
-            <h3>Admin Panel</h3>
+    <div class="row g-4">
+        <div class="col-md-4 fade-up" style="animation-delay: 0.1s;">
+            <div class="glass-card p-4 text-center">
+                <i class="fas fa-user-shield admin-icon"></i>
+                <h4>User Management</h4>
+                <p class="small mb-4">Control access levels, verify expert accounts, and manage user permissions across the system.</p>
+                <a href="{{ url_for('manage_users') }}" class="btn btn-admin-action btn-manage">Access Users</a>
+            </div>
         </div>
-        <div class="card-body">
-            <a href="{{ url_for('manage_users') }}" class="btn btn-primary">Manage Users</a>
-            <a href="{{ url_for('manage_news') }}" class="btn btn-secondary">Manage News</a>
-            <!--<a href="{{ url_for('manage_notifications') }}" class="btn btn-warning">Manage Notifications</a> -->
-            <a href="{{ url_for('manage_about') }}" class="btn btn-info">Manage About Us</a>
+
+        <div class="col-md-4 fade-up" style="animation-delay: 0.2s;">
+            <div class="glass-card p-4 text-center">
+                <i class="fas fa-newspaper admin-icon"></i>
+                <h4>Platform News</h4>
+                <p class="small mb-4">Create and edit news articles, research updates, and announcements for the public dashboard.</p>
+                <a href="{{ url_for('manage_news') }}" class="btn btn-admin-action btn-manage">Edit News</a>
+            </div>
         </div>
+
+        <div class="col-md-4 fade-up" style="animation-delay: 0.3s;">
+            <div class="glass-card p-4 text-center">
+                <i class="fas fa-info-circle admin-icon"></i>
+                <h4>About Content</h4>
+                <p class="small mb-4">Modify the mission statement, methodology descriptions, and team information on the About page.</p>
+                <a href="{{ url_for('manage_about') }}" class="btn btn-admin-action btn-manage">Update Info</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mt-5 fade-up" style="animation-delay: 0.4s;">
+        <div class="col-12">
+            <div class="status-bar p-3 d-flex justify-content-around align-items-center shadow-sm">
+                <div class="text-center">
+                    <span class="small text-muted text-uppercase d-block" style="font-size: 0.7rem;">System Status</span>
+                    <span class="fw-bold text-success"><i class="fas fa-check-circle me-1"></i> Online</span>
+                </div>
+                <div class="text-center">
+                    <span class="small text-muted text-uppercase d-block" style="font-size: 0.7rem;">Active Session</span>
+                    <span class="fw-bold">{{ session.get('username') }} (Admin)</span>
+                </div>
+                <div class="text-center">
+                    <span class="small text-muted text-uppercase d-block" style="font-size: 0.7rem;">Server Time</span>
+                    <span class="fw-bold" id="server-time"></span>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="text-center py-5 fade-up">
+        <i class="fas fa-lock text-danger display-1 mb-4"></i>
+        <h2 class="fw-bold text-dark">Unauthorized Access</h2>
+        <p class="text-muted">This area is reserved for system administrators only.</p>
+        <a href="/" class="btn btn-dark rounded-pill px-5 mt-3">Go Back Home</a>
     </div>
     {% endif %}
 </div>
+
+<script>
+    // Simple clock for the status bar
+    function updateTime() {
+        const now = new Date();
+        document.getElementById('server-time').innerText = now.toLocaleTimeString();
+    }
+    setInterval(updateTime, 1000);
+    updateTime();
+</script>
 {% endblock %}

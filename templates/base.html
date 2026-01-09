@@ -4,65 +4,421 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Soil Erosion Platform{% endblock %}</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/bootstrap.min.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <script src="/static/js/tinymce/tinymce.min.js"></script>
-    <script>
-        tinymce.init({
-            selector: '#content',
-            plugins: 'link lists',
-            toolbar: 'bold italic underline | alignleft aligncenter alignright | bullist numlist | link',
-            menubar: false,
-            height: 300
-        });
-    </script>
+    
+    <style>
+        :root {
+            --primary-color: #0d6efd;
+            --dark-header: #1a1d20;
+        }
+        .nav-email-text {
+            display: inline-block;
+            max-width: 150px; /* Adjust this value based on your preference */
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            vertical-align: middle;
+        }
+        body {
+            /* 1. BLACK FALLBACK: Added #000 as base color if images fail */
+            background-color: #000; 
+            background: 
+                linear-gradient(rgba(255, 255, 255, 0.7), rgba(255, 255, 255, 0.7)), 
+                url("{{ url_for('static', filename='images/lesotho1.jpeg') }}") top left no-repeat,
+                url("{{ url_for('static', filename='images/lesotho2.jpeg') }}") bottom right no-repeat;
+            background-attachment: fixed;
+            background-size: 50% auto, 50% auto;
+            scroll-behavior: smooth;
+            padding-top: 100px;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* --- Navbar --- */
+        .navbar {
+            padding: 1rem 0;
+            background: rgba(26, 29, 32, 0.98) !important;
+            backdrop-filter: blur(10px);
+            border-bottom: 10px solid var(--primary-color);
+        }
+        .navbar-brand { font-weight: 800; display: flex; align-items: center; }
+        .flag-icon { height: 35px; margin-right: 12px; border: 1px solid rgba(255,255,255,0.2); }
+
+        /* --- Team Sidebar --- */
+        .team-sidebar {
+            position: fixed;
+            left: 20px;
+            top: 120px;
+            width: 130px;
+            z-index: 100;
+            text-align: center;
+        }
+        .team-photo-frame {
+            width: 110px;
+            height: 110px;
+            border-radius: 50%;
+            border: 4px solid white;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            overflow: hidden;
+            background: #eee;
+            cursor: pointer;
+            transition: transform 0.3s ease;
+        }
+        .team-photo-frame:hover { transform: scale(1.1); }
+        .team-photo-frame img { width: 100%; height: 100%; object-fit: cover; transition: opacity 0.8s; }
+
+        /* --- Advanced Team Modal Gallery --- */
+        #teamModal {
+            display: none; 
+            position: fixed;
+            z-index: 2000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.95);
+            backdrop-filter: blur(10px);
+        }
+        .gallery-container {
+            position: relative;
+            width: 90%;
+            max-width: 900px;
+            margin: auto;
+            top: 50%;
+            transform: translateY(-50%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .main-img-wrapper {
+            position: relative;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        #modalImg {
+            max-width: 100%;
+            max-height: 60vh;
+            border-radius: 8px;
+            border: 4px solid #fff;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+        }
+        .nav-btn {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(255,255,255,0.2);
+            color: white;
+            border: none;
+            padding: 15px 20px;
+            cursor: pointer;
+            border-radius: 50%;
+            font-size: 1.5rem;
+            transition: 0.3s;
+        }
+        .nav-btn:hover { background: var(--primary-color); }
+        .prev-btn { left: -60px; }
+        .next-btn { right: -60px; }
+        
+        /* Mini view at bottom */
+        .thumb-strip {
+            width: 100%;
+            margin-top: 25px;
+            display: flex;
+            gap: 10px;
+            overflow-x: auto;
+            padding: 10px;
+            scrollbar-width: thin;
+            scrollbar-color: var(--primary-color) #333;
+        }
+        .thumb-strip::-webkit-scrollbar { height: 6px; }
+        .thumb-strip::-webkit-scrollbar-thumb { background: var(--primary-color); border-radius: 10px; }
+        
+        .thumb-item {
+            min-width: 80px;
+            height: 60px;
+            cursor: pointer;
+            border: 2px solid transparent;
+            border-radius: 4px;
+            opacity: 0.6;
+            transition: 0.3s;
+        }
+        .thumb-item img { width: 100%; height: 100%; object-fit: cover; border-radius: 2px; }
+        .thumb-item.active { opacity: 1; border-color: var(--primary-color); transform: scale(1.05); }
+
+        .close-modal {
+            position: absolute;
+            top: -50px;
+            right: 0;
+            color: white;
+            font-size: 40px;
+            cursor: pointer;
+        }
+
+        /* --- Scroll Buttons --- */
+        .scroll-nav {
+            position: fixed;
+            right: 30px;
+            z-index: 1000;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            border: none;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            transition: 0.3s;
+        }
+        #backToTop { bottom: 90px; background: var(--primary-color); display: none; }
+        #goToBottom { bottom: 30px; background: #28a745; }
+        .scroll-nav:hover { transform: scale(1.1); filter: brightness(1.1); }
+
+        footer { background: rgba(26, 29, 32, 1); color: white; padding: 4rem 0 2rem 0; margin-top: auto; }
+        .footer-flag { height: 45px; margin-bottom: 20px; }
+    </style>
 </head>
 <body>
-    <!-- Header -->
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-        <div class="container-fluid">
-            <a class="navbar-brand" href="/">Home</a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+    <script src="https://cdn.ckeditor.com/4.22.1/full/ckeditor.js"></script>
+    <nav class="navbar navbar-expand-lg navbar-dark fixed-top">
+        <div class="container">
+            <a class="navbar-brand" href="/">
+                <img src="{{ url_for('static', filename='images/flag.png') }}" class="flag-icon" alt="Flag">
+                SOIL EROSION <span class="text-primary ms-1">LESOTHO</span>
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                <ul class="navbar-nav me-auto">
                     {% if logged_in %}
-                    <li class="nav-item"><a class="nav-link" href="/visualization">Soil Loss Mapping</a></li>
-                    <li class="nav-item"><a class="nav-link" href="/reports">Reports</a></li>
-                    {% endif %}
-                    {% if session.get('role') == 'admin' %}
-                        <li class="nav-item"> <a class="nav-link" href="{{ url_for('manage_about') }}">Manage About</a></li>
-                    {%else%}
-                        <li class="nav-item"><a class="nav-link" href="{{ url_for('about') }}">About Us</a></li>
-                    {% endif %}
-                </ul>
-                <ul class="navbar-nav">
-                    {% if logged_in %}
-                    <li class="nav-item"><a class="nav-link" href="/logout">Logout</a></li>
-                        {%if username%}
-                    <li class="nav-item"><a class="nav-link">{{username}}</a>
-                        {%endif%}
-                    </li>
+                    <li class="nav-item"><a class="nav-link" href="/visualization"><i class="fas fa-map me-1"></i> Mapping Visualization</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/reports"><i class="fas fa-file-invoice me-1"></i> Reports</a></li>
                     
+                    {% if session.get('role') in ['admin', 'expert'] %}
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle text-info" href="#" id="mgmtDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="fas fa-tools me-1"></i> Management
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-dark shadow" aria-labelledby="mgmtDropdown" style="background: rgba(26, 29, 32, 0.95); border: 1px solid var(--primary-color);">
+                            <li><a class="dropdown-item" href="/manage_regions"><i class="fas fa-map-marker-alt me-2"></i>Manage AOIs</a></li>
+                            <li><a class="dropdown-item" href="/manage_data"><i class="fas fa-chart-line me-2"></i>Manage Data Records</a></li>
+                            {% if session.get('role') == 'admin' %}
+                            <li><hr class="dropdown-divider bg-secondary"></li>
+                            <li><a class="dropdown-item" href="/manage_users"><i class="fas fa-users-cog me-2"></i>User Access</a></li>
+                            {% endif %}
+                        </ul>
+                    </li>
+                    {% endif %}
+
+                    <li class="nav-item">
+                        <a class="nav-link position-relative" href="{{ url_for('notifications') }}">
+                            <i class="fas fa-bell me-2"></i>Notifications
+                            {% if unread_count and unread_count > 0 %}
+                            <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" 
+                                style="font-size: 0.65rem; padding: 0.35em 0.65em; transform: translate(-10%, -20%) !important;">
+                                {{ unread_count }}
+                            </span>
+                            {% endif %}
+                        </a>
+                    </li>
+                    {% endif %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('about') }}">
+                            <i class="fas fa-info-circle me-1"></i> About Us
+                        </a>
+                    </li>
+                </ul>
+                <ul class="navbar-nav align-items-center">
+                    {% if logged_in %}
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown">
+                                <span class="me-2 d-none d-lg-inline text-light small">{{ username }}</span>
+                                <i class="fas fa-user-circle fs-5 text-primary"></i>
+                            </a>
+                            <ul class="dropdown-menu dropdown-menu-end dropdown-menu-dark shadow">
+                                <li class="px-3 py-2 border-bottom border-secondary">
+                                    <div class="small text-white-50">Logged in as:</div>
+                                    <div class="small fw-bold text-truncate" style="max-width: 200px;">{{ session.get('email') }}</div>
+                                </li>
+                                <li><a class="dropdown-item text-danger" href="/logout"><i class="fas fa-sign-out-alt me-2"></i>Logout</a></li>
+                            </ul>
+                        </li>
                     {% else %}
-                    <li class="nav-item"><a class="nav-link" href="/login">Login</a></li>
+                        <li class="nav-item"><a class="btn btn-primary btn-sm rounded-pill px-4" href="/login">Login</a></li>
+                        <li class="nav-item">
+                            <a class=" btn btn-primary btn-sm rounded-pill px-4 text-white" href="{{ url_for('register') }}">Register</a>
+                        </li>
                     {% endif %}
                 </ul>
             </div>
         </div>
     </nav>
+    <div class="container mt-3">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show shadow-sm" role="alert" style="border-radius: 12px;">
+                    {% if category == 'danger' %}
+                        <i class="fas fa-exclamation-circle me-2"></i>
+                    {% elif category == 'success' %}
+                        <i class="fas fa-check-circle me-2"></i>
+                    {% endif %}
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+</div>
+    <div class="team-sidebar d-none d-xl-block">
+        <p class="small text-muted mb-1 fw-bold">Our Team</p>
+        <div class="team-photo-frame" onclick="openTeamModal()">
+            <img id="teamImage" src="{{ url_for('static', filename='images/TeamPhoto1.jpeg') }}" alt="Team">
+        </div>
+        <p class="small text-muted mt-1" style="font-size: 0.7rem;">Click to expand</p>
+    </div>
 
-    <!-- Main Content -->
-    <div class="container mt-4">
+    <div id="teamModal">
+        <div class="gallery-container">
+            <span class="close-modal" onclick="closeTeamModal()">&times;</span>
+            <div class="main-img-wrapper">
+                <button class="nav-btn prev-btn" onclick="changeImage(-1)"><i class="fas fa-chevron-left"></i></button>
+                <img id="modalImg" src="">
+                <button class="nav-btn next-btn" onclick="changeImage(1)"><i class="fas fa-chevron-right"></i></button>
+            </div>
+            <h4 class="text-white mt-3 fw-bold">Project Team Members</h4>
+            <div class="thumb-strip" id="thumbStrip">
+                {% for i in range(1, 9) %}
+                <div class="thumb-item" onclick="setGalleryImage({{ i-1 }})" id="thumb-{{ i-1 }}">
+                    <img src="{{ url_for('static', filename='images/TeamPhoto' ~ i ~ '.jpeg') }}" alt="Team Mini">
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <button onclick="scrollToTop()" id="backToTop" class="scroll-nav" title="Go to Top"><i class="fas fa-chevron-up"></i></button>
+    <button onclick="scrollToBottom()" id="goToBottom" class="scroll-nav" title="Go to Footer"><i class="fas fa-chevron-down"></i></button>
+
+    <div class="container my-4">
         {% block content %}{% endblock %}
     </div>
-    <!-- Footer -->
-    <footer class="bg-dark text-light text-center py-3">
-        <p>&copy; 2025 Soil Erosion Platform. All rights reserved.</p>
-        <p class="text-muted small">Stay informed with the latest updates on soil erosion management.</p>
+
+    <footer id="main-footer">
+        <div class="container text-center">
+            <img src="{{ url_for('static', filename='images/flag.png') }}" class="footer-flag" alt="Flag">
+            <h4 class="fw-bold mb-3">Soil Erosion Prediction Platform</h4>
+            <p class="text-muted small mx-auto mb-4" style="max-width: 600px;">A comprehensive spatial decision support system for soil conservation and erosion risk assessment in the Kingdom of Lesotho.</p>
+            <div class="d-flex justify-content-center gap-4 mb-4">
+                <a href="/" class="text-light text-decoration-none small">Home</a>
+                <a href="/about" class="text-light text-decoration-none small">About Us</a>
+                <a href="#" class="text-light text-decoration-none small">Privacy Policy</a>
+            </div>
+            <p class="text-secondary small mb-0">&copy; 2026 Soil Erosion Platform. All rights reserved.</p>
+        </div>
     </footer>
 
     <script src="{{ url_for('static', filename='js/bootstrap.bundle.min.js') }}"></script>
+
+    <script>
+        const teamImages = [
+            {% for i in range(1, 9) %}
+            "{{ url_for('static', filename='images/TeamPhoto' ~ i ~ '.jpeg') }}",
+            {% endfor %}
+        ];
+        let currentIdx = 0;
+        let autoPlayInterval;
+        const imgObj = document.getElementById('teamImage');
+        const modal = document.getElementById("teamModal");
+        const modalImg = document.getElementById("modalImg");
+
+        // 1. Sidebar Carousel
+        setInterval(() => {
+            currentIdx = (currentIdx + 1) % teamImages.length;
+            imgObj.style.opacity = 0;
+            setTimeout(() => {
+                imgObj.src = teamImages[currentIdx];
+                imgObj.style.opacity = 1;
+            }, 800);
+        }, 5000);
+
+        // 2. Advanced Gallery Logic
+        function openTeamModal() {
+            modal.style.display = "block";
+            updateGallery();
+            startAutoPlay();
+        }
+
+        function closeTeamModal() {
+            modal.style.display = "none";
+            clearInterval(autoPlayInterval);
+        }
+
+        function setGalleryImage(index) {
+            currentIdx = index;
+            updateGallery();
+            resetAutoPlay();
+        }
+
+        function changeImage(step) {
+            currentIdx = (currentIdx + step + teamImages.length) % teamImages.length;
+            updateGallery();
+            resetAutoPlay();
+        }
+
+        function updateGallery() {
+            modalImg.src = teamImages[currentIdx];
+            document.querySelectorAll('.thumb-item').forEach(el => el.classList.remove('active'));
+            const activeThumb = document.getElementById(`thumb-${currentIdx}`);
+            activeThumb.classList.add('active');
+            activeThumb.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+        }
+
+        function startAutoPlay() {
+            autoPlayInterval = setInterval(() => changeImage(1), 4000);
+        }
+
+        function resetAutoPlay() {
+            clearInterval(autoPlayInterval);
+            startAutoPlay();
+        }
+
+        // 3. Scroll & Background Black Fallback logic
+        window.onscroll = function() {
+            const topBtn = document.getElementById("backToTop");
+            const bottomBtn = document.getElementById("goToBottom");
+            if (document.body.scrollTop > 400 || document.documentElement.scrollTop > 400) {
+                topBtn.style.display = "flex";
+            } else {
+                topBtn.style.display = "none";
+            }
+            if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight - 100) {
+                bottomBtn.style.opacity = "0";
+            } else {
+                bottomBtn.style.opacity = "1";
+            }
+        };
+
+        function scrollToTop() { window.scrollTo({top: 0, behavior: 'smooth'}); }
+        function scrollToBottom() { window.scrollTo({top: document.body.scrollHeight, behavior: 'smooth'}); }
+
+        window.onclick = function(event) { if (event.target == modal) closeTeamModal(); }
+
+        // Auto-hide flash messages after 5 seconds
+        setTimeout(function() {
+            let alerts = document.querySelectorAll('.alert');
+            alerts.forEach(function(alert) {
+                let bsAlert = new bootstrap.Alert(alert);
+                bsAlert.close();
+            });
+        }, 6000);
+    </script>
 </body>
 </html>

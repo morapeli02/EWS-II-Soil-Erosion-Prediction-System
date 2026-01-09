@@ -1,17 +1,102 @@
 {% extends "base.html" %}
 
-{% block title %}Manage About- Soil Erosion Platform{% endblock %}
+{% block title %}About Us - Soil Erosion Platform{% endblock %}
 
 {% block content %}
-<div class="container mt-4">
-    <h1>About Us</h1>
-    <hr>
-    {% if about_us %}
-        <div class="content">
-            {{ about_us.content|safe }}
+<style>
+    /* Consistent Branding from Publisher Theme */
+    .about-container { color: #000000 !important; }
+    
+    .header-section { margin-bottom: 2.5rem; }
+    .header-section h1 { font-weight: 800; color: #000; letter-spacing: -1px; }
+
+    /* Glass-morphism Content Card */
+    .about-card {
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(15px);
+        border: 1px solid rgba(0, 0, 0, 0.1);
+        border-radius: 25px;
+        padding: 3rem;
+        box-shadow: 0 15px 35px rgba(0, 0, 0, 0.15);
+        margin-bottom: 4rem;
+        line-height: 1.8;
+    }
+
+    .about-content {
+        font-size: 1.2rem;
+        color: #333;
+    }
+
+    .admin-tools {
+        margin-top: 2rem;
+        padding-top: 2rem;
+        border-top: 1px solid #eee;
+    }
+    
+    .btn-edit {
+        background: #000;
+        color: #fff;
+        border-radius: 12px;
+        padding: 0.8rem 2rem;
+        font-weight: 700;
+    }
+</style>
+
+<div class="container py-4 about-container">
+    <div class="header-section">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="/" class="text-black text-decoration-none fw-bold">Home</a></li>
+                <li class="breadcrumb-item active text-muted">About Us</li>
+            </ol>
+        </nav>
+        <h1><i class="fas fa-info-circle me-2"></i>About the Platform</h1>
+    </div>
+
+    <div class="about-card shadow-sm">
+        {% if about_us %}
+            <div class="about-content">
+                {{ about_us.content|safe }}
+            </div>
+        {% else %}
+            <div class="text-center py-5">
+                <i class="fas fa-file-alt fa-3x text-muted mb-3"></i>
+                <p class="lead">No "About Us" content has been published yet.</p>
+            </div>
+        {% endif %}
+
+        {# Admin Edit Section - Only visible to administrators #}
+        {% if session.get('role') == 'admin' %}
+        <div class="admin-tools">
+            <h4 class="fw-bold mb-3">Update Page Content</h4>
+            <form method="POST" action="{{ url_for('manage_about') }}">
+                <div class="mb-4">
+                    <textarea id="content" name="content">{{ about_us.content if about_us else '' }}</textarea>
+                </div>
+                <div class="text-end">
+                    <button type="submit" class="btn btn-edit">
+                        Save Changes <i class="fas fa-save ms-2"></i>
+                    </button>
+                </div>
+            </form>
         </div>
-    {% else %}
-        <p>No "About Us" content available. Please check back later!</p>
-    {% endif %}
+        {% endif %}
+    </div>
 </div>
+
+<script>
+    // Initialize CKEditor with larger dimensions
+    if (typeof CKEDITOR !== 'undefined') {
+        CKEDITOR.replace('content', {
+            height: 500, // Increased height
+            width: '100%', // Full width
+            // Setting a larger default style
+            contentsCss: ["body {font-size: 1.2rem; font-family: 'Inter', sans-serif; color: #000;}"],
+            fontSize_defaultLabel: '18px',
+            resize_enabled: true, // Allow manual resizing
+            resize_minWidth: 600,
+            resize_maxWidth: '100%'
+        });
+    }
+</script>
 {% endblock %}

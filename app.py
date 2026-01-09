@@ -40,8 +40,9 @@ db = SQLAlchemy(app)
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
+    email = db.Column(db.String(120), unique=True, nullable=False) # New Column
     password = db.Column(db.String(200), nullable=False)
-    role = db.Column(db.String(20), nullable=False)  # 'admin' , expert or 'user'
+    role = db.Column(db.String(20), nullable=False, default='user')
 
 class Report(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -58,7 +59,17 @@ class News(db.Model):
     
 class Notification(db.Model):
     id = db.Column(db.Integer, primary_key=True)
+    sender_id = db.Column(db.Integer, db.ForeignKey('user.id')) 
+    recipient_role = db.Column(db.String(20)) 
     content = db.Column(db.Text, nullable=False)
+    is_read = db.Column(db.Boolean, default=False)
+    is_completed = db.Column(db.Boolean, default=False)
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+
+    # Add this relationship
+    sender = db.relationship('User', backref='sent_notifications')
+
+    
 
 class AboutUs(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -67,7 +78,8 @@ class AboutUs(db.Model):
 class AreaOfInterest(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     region_name = db.Column(db.String(255), nullable=False)
-    region_code = db.Column(db.Text, nullable=False)  # Stores the EE geometry polygon definition
+    region_code = db.Column(db.Text, nullable=False) # Stores the EE geometry string
+    description = db.Column(db.Text, nullable=True)  # New field for area details
     soil_erosion_estimates = db.relationship('soil_erosion_estimates', backref='area', lazy=True)
     
 class soil_erosion_estimates(db.Model):
@@ -110,47 +122,90 @@ def home():
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        username = request.form.get('username')
+        username = request.form.get('username') # This can be username or email
         password = request.form.get('password')
-        user = User.query.filter_by(username=username).first()
+        email = request.form.get('username')
+        # Find user by username OR email
+        user = User.query.filter((User.username == username) | (User.email == email)).first()
+
         if user and user.password == password:
             session['logged_in'] = True
-            session['username'] = username
+            session['user_id'] = user.id
+            session['username'] = user.username
+            session['email'] = user.email # Added to session
             session['role'] = user.role
-            flash('Login successful!', 'success')
+            flash(f'Welcome back, {user.username}!', 'success')
             return redirect(url_for('home'))
-        else:
-            flash('Invalid username or password.', 'danger')
+        
+        flash('Invalid credentials', 'danger')
     return render_template('login.html')
+
 # Admin: Manage Users
 @app.route('/manage_users', methods=['GET', 'POST'])
 def manage_users():
     logged_in = session.get('logged_in', False)
     username = session.get('username', None)
     role = session.get('role', None)
+    
+    # Security Check
     if session.get('role') != 'admin':
         flash('Unauthorized access!', 'danger')
-        return redirect(url_for('home'))
+        return redirect(url_for('dashboard')) # or home
+    
     users = User.query.all()
+    
     if request.method == 'POST':
         action = request.form.get('action')
+        
         if action == 'add':
-            username = request.form.get('username')
-            password = request.form.get('password')
-            role = request.form.get('role')
-            new_user = User(username=username, password=password, role=role)
-            db.session.add(new_user)
-            db.session.commit()
-            flash('User added successfully!', 'success')
+            username_input = request.form.get('username')
+            email_input = request.form.get('email')
+            password_input = request.form.get('password')
+            role_input = request.form.get('role')
+            
+            # --- NEW: UNIQUENESS CHECK ---
+            # Check if username OR email already exists in the database
+            existing_user = User.query.filter(
+                (User.username == username_input) | (User.email == email_input)
+            ).first()
+
+            if existing_user:
+                # If found, flash error and stop
+                flash('Error: Username or Email already exists in the system.', 'danger')
+                return redirect(url_for('manage_users'))
+            
+            # If unique, proceed to hash and save
+            hashed_pw = generate_password_hash(password_input, method='pbkdf2:sha256')
+            
+            new_user = User(
+                username=username_input, 
+                email=email_input, 
+                password=password_input, 
+                role=role_input
+            )
+            
+            try:
+                db.session.add(new_user)
+                db.session.commit()
+                flash('User account created successfully!', 'success')
+            except Exception as e:
+                db.session.rollback()
+                flash('Database error occurred.', 'danger')
+            
             return redirect(url_for('manage_users'))
+            
         elif action == 'delete':
             user_id = request.form.get('user_id')
-            User.query.filter_by(id=user_id).delete()
-            db.session.commit()
-            flash('User deleted successfully!', 'success')
+            # Prevent deleting yourself
+            if int(user_id) == session.get('user_id'):
+                flash('You cannot delete your own admin account!', 'warning')
+            else:
+                User.query.filter_by(id=user_id).delete()
+                db.session.commit()
+                flash('User access revoked successfully.', 'success')
             return redirect(url_for('manage_users'))
-    return render_template('manage_users.html', logged_in=logged_in, username=username, role=role,users=users)
-
+            
+    return render_template('manage_users.html', logged_in=logged_in, username=username, role=role, users=users)
 # Admin: Manage News
 @app.route('/manage_news', methods=['GET', 'POST'])
 def manage_news():
@@ -180,32 +235,117 @@ def manage_news():
     return render_template('manage_news.html',logged_in=logged_in, username=username, role=role, news_list=news_list)
 
 # Admin: Manage Notifications
-@app.route('/manage_notifications', methods=['GET', 'POST'])
-def manage_notifications():
+# Complete Notification System Backend
+
+from flask import render_template, request, session, redirect, url_for, flash
+from datetime import datetime
+# Assuming your models are imported from your app
+# from models import db, Notification, User
+
+# Main Notifications Page
+# ==============================================================================
+# NOTIFICATION ROUTES - Replace your existing /notifications route
+# ==============================================================================
+@app.route('/notifications', methods=['GET', 'POST'])
+def notifications():
+
     logged_in = session.get('logged_in', False)
-    username = session.get('username', None)
-    role = session.get('role', None)
-    if session.get('role') != 'admin':
-        flash('Unauthorized access!', 'danger')
-        return redirect(url_for('home'))
-    notifications = Notification.query.all()
+    if not session.get('logged_in'):
+        return redirect(url_for('login'))
+
+    user_id = session.get('user_id')
+    role = session.get('role')
+    username = session.get('username')
+
     if request.method == 'POST':
         action = request.form.get('action')
-        if action == 'add':
+        notif_id = request.form.get('notif_id')
+        
+        # 1. Create Request
+        if action == 'send_request':
             content = request.form.get('content')
-            sanitized_content = bleach.clean(content, tags=['p', 'font', 'strong', 'a', 'br'], attributes={'a': ['href'], 'font': ['size', 'color'], 'p': ['align']})
-            new_notification = Notification(content=sanitized_content)
-            db.session.add(new_notification)
+            target_role = 'expert' if role == 'user' else 'admin'
+            new_req = Notification(
+                sender_id=user_id, 
+                recipient_role=target_role, 
+                content=content
+            )
+            db.session.add(new_req)
             db.session.commit()
-            flash('Notification added successfully!', 'success')
-            return redirect(url_for('manage_notifications'))
+            flash('Request sent successfully!', 'success')
+
+        # 2. Mark Completed (Attend) - Marks unread for the sender
+        elif action == 'complete':
+            notif = Notification.query.get(notif_id)
+            if notif:
+                notif.is_completed = True
+                notif.is_read = False # Reset so sender sees the completion update
+                db.session.commit()
+                flash('Notification updated!', 'success')
+
+        # 3. Delete (Admin OR Expert associated with the notification)
         elif action == 'delete':
-            notification_id = request.form.get('notification_id')
-            Notification.query.filter_by(id=notification_id).delete()
-            db.session.commit()
-            flash('Notification deleted successfully!', 'success')
-            return redirect(url_for('notifications'))
-    return render_template('manage_notifications.html',logged_in=logged_in, username=username, role=role, notifications=notifications)
+            notif = Notification.query.get(notif_id)
+            if notif:
+                # Permission check: Admin can delete all; Expert can delete their sent/received items
+                if role == 'admin' or (role == 'expert' and (notif.sender_id == user_id or notif.recipient_role == 'expert')):
+                    db.session.delete(notif)
+                    db.session.commit()
+                    flash('Notification removed!', 'success')
+                else:
+                    flash('Unauthorized action.', 'danger')
+            
+        return redirect(url_for('notifications'))
+
+    # FILTERING LOGIC
+    if role == 'admin':
+        notifs = Notification.query.filter(
+            (Notification.recipient_role == 'admin') | (Notification.sender_id == user_id)
+        ).order_by(Notification.timestamp.desc()).all()
+    elif role == 'expert':
+        notifs = Notification.query.filter(
+            (Notification.recipient_role == 'expert') | (Notification.sender_id == user_id)
+        ).order_by(Notification.timestamp.desc()).all()
+    else:
+        notifs = Notification.query.filter_by(sender_id=user_id).order_by(Notification.timestamp.desc()).all()
+
+    # Auto-mark items as read
+    for n in notifs:
+        if not n.is_read:
+            # Mark read if: 
+            # 1. I am the recipient role OR 
+            # 2. I am the sender seeing a 'completed' status flip
+            if n.recipient_role == role or (n.sender_id == user_id and n.is_completed):
+                n.is_read = True
+    db.session.commit()
+
+    # Calculate unread count specifically for the current view
+    unread_count = len([n for n in notifs if not n.is_read])
+
+    return render_template('notifications.html', 
+                           notifications=notifs, 
+                           role=role, 
+                           user_id=user_id,
+                           logged_in=logged_in, 
+                           unread_count=unread_count,
+                           username=username)
+
+# ==============================================================================
+# CONTEXT PROCESSOR - Replace your existing inject_notifications function
+# ==============================================================================
+@app.context_processor
+def inject_notif_count():
+    if session.get('logged_in'):
+        role = session.get('role')
+        user_id = session.get('user_id')
+        # Count where you are the recipient or your own request was updated (unread)
+        count = Notification.query.filter(
+            ((Notification.recipient_role == role) | (Notification.sender_id == user_id)),
+            (Notification.is_read == False)
+        ).count()
+        return dict(unread_count=count)
+    return dict(unread_count=0)
+
 
 # Admin: Manage About Us
 @app.route('/manage_about', methods=['GET', 'POST'])
@@ -866,42 +1006,42 @@ def download_report(report_id):
 # Reports route
 @app.route('/reports', methods=['GET', 'POST'])
 def reports():
-    logged_in = session.get('logged_in', False)
     username = session.get('username', None)
+    logged_in = session.get('logged_in', False)
     role = session.get('role', None)
     is_admin_or_expert = role in ['admin', 'expert']
     
-    # Get list of available years for the dropdown
-    available_years = sorted(set([result.year for result in soil_erosion_estimates.query.all()]))
+    # 1. Pull dynamic filter lists from Database
+    available_years = sorted(set([r.year for r in soil_erosion_estimates.query.all()]))
+    available_regions = sorted(set([a.region_name for a in AreaOfInterest.query.all()]))
+    available_authors = sorted(set([rep.author for rep in Report.query.all()]))
     
-    selected_year = None
-    if request.method == 'POST':
-        selected_year = request.form.get('year')
+    # 2. Get Filter Inputs
+    selected_year = request.form.get('year')
+    selected_region = request.form.get('region_filter')
+    selected_author = request.form.get('author_filter')
     
+    # 3. Build Query
+    query = Report.query.join(soil_erosion_estimates)
+    if selected_year:
+        query = query.filter(soil_erosion_estimates.year == int(selected_year))
+    if selected_region:
+        query = query.join(AreaOfInterest, soil_erosion_estimates.area_of_interest_id == AreaOfInterest.id)\
+                     .filter(AreaOfInterest.region_name == selected_region)
+    if selected_author:
+        query = query.filter(Report.author == selected_author)
+        
+    reports = query.order_by(Report.date.desc()).all()
     reports_data = []
     
-    # Query reports based on selected year
-    if selected_year:
-        reports = Report.query.join(soil_erosion_estimates).filter(soil_erosion_estimates.year == int(selected_year)).all()
-    else:
-        reports = Report.query.order_by(Report.date.desc()).all()
-    
     for report in reports:
-        # Get erosion data for the corresponding soil loss estimate
         erosion_data = soil_erosion_estimates.query.get(report.soil_loss_id)
-        
         if erosion_data:
-            # Get region name from the linked area of interest
-            region_name = "Unknown"
-            if erosion_data.area_of_interest_id:
-                area = AreaOfInterest.query.get(erosion_data.area_of_interest_id)
-                if area:
-                    region_name = area.region_name
+            # Resolve Region Name
+            area = AreaOfInterest.query.get(erosion_data.area_of_interest_id)
+            erosion_data.region_name = area.region_name if area else "Unknown"
             
-            # Add the region_name to the erosion_data object (as a non-persistent attribute)
-            erosion_data.region_name = region_name
-            
-            # Create images list similar to visualization route
+            # 4. Correct Image Logic: Separate Maps and Stats for Clarity
             images = [
                 {"label": "R Factor", "url": convert_image_to_jpg(erosion_data.r_factor_image), "stats_url": erosion_data.r_factor_stats},
                 {"label": "K Factor", "url": convert_image_to_jpg(erosion_data.k_factor_image), "stats_url": erosion_data.k_factor_stats},
@@ -909,29 +1049,26 @@ def reports():
                 {"label": "C Factor", "url": convert_image_to_jpg(erosion_data.c_factor_image), "stats_url": erosion_data.c_factor_stats},
                 {"label": "P Factor", "url": convert_image_to_jpg(erosion_data.p_factor_image), "stats_url": erosion_data.p_factor_stats},
                 {"label": "Soil Loss", "url": convert_image_to_jpg(erosion_data.soil_loss_image), "stats_url": erosion_data.soil_loss_stats},
-                {"label": "Area of interest Image", "url":convert_image_to_jpg(erosion_data.aoi_image),"stats_url":None},
-                {"label": "Detailed Soil Loss Stats","url":None, "stats_url": erosion_data.soil_loss_detailed_stats}
+                {"label": "AOI Map", "url": convert_image_to_jpg(erosion_data.aoi_image), "stats_url": None},
+                {"label": "Detailed Stats", "url": None, "stats_url": erosion_data.soil_loss_detailed_stats}
             ]
             
-            # Filter out any None values
-            images = [img for img in images if img['url'] is not None or img['stats_url'] is not None]
+            # Clean list
+            images = [img for img in images if img['url'] or img['stats_url']]
             reports_data.append((report, erosion_data, images))
-        else:
-            # Create a dummy object with a region_name attribute
-            class DummyObject:
-                pass
-            dummy = DummyObject()
-            dummy.region_name = "Unknown"
-            reports_data.append((report, dummy, []))
-    
+            
     return render_template('reports.html', 
                           reports=reports_data,
+                          available_years=available_years,
+                          available_regions=available_regions,
+                          available_authors=available_authors,
+                          selected_year=selected_year,
                           logged_in=logged_in,
                           username=username,
                           role=role,
-                          is_admin_or_expert=is_admin_or_expert,
-                          available_years=available_years,
-                          selected_year=selected_year)
+                          selected_region=selected_region,
+                          selected_author=selected_author,
+                          is_admin_or_expert=is_admin_or_expert)
 ##############################################################################################################################################################################################
 #                                                                                                                                                                                             #
 ###############################################################################################################################################################################################
@@ -1054,7 +1191,95 @@ def add_report():
         selected_region=selected_region,
         region_name=region_name
     )
+
+
+@app.route('/manage_data', methods=['GET', 'POST'])
+def manage_data():
+    logged_in = session.get('logged_in', False)
+    username = session.get('username', None)
+    role = session.get('role', None)
     
+    if role not in ['admin', 'expert']:
+        flash('Unauthorized Access', 'danger')
+        return redirect(url_for('home'))
+
+    # Join with AreaOfInterest
+    raw_estimates = db.session.query(soil_erosion_estimates, AreaOfInterest).join(
+        AreaOfInterest, soil_erosion_estimates.area_of_interest_id == AreaOfInterest.id
+    ).order_by(AreaOfInterest.region_name.asc()).all()
+
+    # Process images into JPG for the UI to prevent the "?" question mark issue
+    processed_estimates = []
+    for estimate, area in raw_estimates:
+        processed_estimates.append({
+            'id': estimate.id,
+            'region_name': area.region_name,
+            'year': estimate.year,
+            # Convert TIF paths to JPG URLs
+            'soil_loss_map': convert_image_to_jpg(estimate.soil_loss_image),
+            'soil_loss_details': estimate.soil_loss_detailed_stats, # This is usually already a PNG/JPG
+            'type': 'Prediction' if estimate.year > 2025 else 'Historical'
+        })
+
+    if request.method == 'POST':
+        action = request.form.get('action')
+        estimate_id = request.form.get('estimate_id')
+
+        if action == 'delete':
+            soil_erosion_estimates.query.filter_by(id=estimate_id).delete()
+            db.session.commit()
+            flash('Estimate record deleted successfully.', 'success')
+            return redirect(url_for('manage_data'))
+
+    return render_template('manage_data.html', 
+                           estimates=processed_estimates,
+                           logged_in=logged_in,
+                           username=username,
+                           role=role)
+
+
+
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    # If user is already logged in, they shouldn't be registering
+    if session.get('logged_in'):
+        return redirect(url_for('home'))
+
+    if request.method == 'POST':
+        username = request.form.get('username')
+        email = request.form.get('email')
+        password = request.form.get('password')
+        confirm_password = request.form.get('confirm_password')
+
+        # 1. Validation
+        if password != confirm_password:
+            flash('Passwords do not match!', 'danger')
+            return redirect(url_for('register'))
+
+        # 2. Check if username or email exists
+        user_exists = User.query.filter((User.username == username) | (User.email == email)).first()
+        if user_exists:
+            flash('Username or Email is already registered.', 'warning')
+            return redirect(url_for('register'))
+
+        # 3. Hash password and save
+        try:
+            
+            new_user = User(
+                username=username, 
+                email=email, 
+                password=password, 
+                role='user' # Default role for self-registration
+            )
+            db.session.add(new_user)
+            db.session.commit()
+            flash('Account created! You can now log in.', 'success')
+            return redirect(url_for('login'))
+        except Exception as e:
+            db.session.rollback()
+            flash('An error occurred during registration.', 'danger')
+
+    return render_template('register.html')
 ###############################################################################################################################################################################################
 #                                                                                                                                                                                             #
 ###############################################################################################################################################################################################
@@ -1065,13 +1290,12 @@ def visualization():
     logged_in = session.get('logged_in', False)
     username = session.get('username', None)
     role = session.get('role', None)
-    
+    is_admin_or_expert = role in ['admin', 'expert']
     import datetime  # Import datetime module properly
     
     images = []
     selected_year = None
     selected_area_id = None
-    processing_message = None
     region_name = None
     model_mode = 'rusle'  # Default to RUSLE mode
     current_year = datetime.datetime.now().year
@@ -1196,7 +1420,7 @@ def visualization():
                 
                 # If data doesn't exist, process it
                 if not year_data:
-                    processing_message = f"Processing data for year {selected_year}..."
+                    flash(f"Processing data for {region_name} year {selected_year}...")
                     
                     # Set dates for processing
                     start_date = f"{selected_year}-01-01"
@@ -1228,7 +1452,7 @@ def visualization():
                     db.session.add(year_data)
                     db.session.commit()
                     
-                    processing_message = f"Processing completed for year {selected_year}!"
+                    flash(f"Processing completed for {region_name} year {selected_year}!")
                 
                 # Collect all image paths for the selected year
                 images = [
@@ -1254,70 +1478,72 @@ def visualization():
                 print(traceback.format_exc())
         
         elif model_mode == 'prediction':
-            # Handle prediction mode logic here
             try:
                 selected_area_id = request.form.get('prediction_area_id')
                 prediction_year = request.form.get('prediction_year')
 
-                if not selected_area_id:
-                    flash('Please select an area for prediction', 'danger')
-                    raise ValueError("No area selected for prediction")
+                if not selected_area_id or not prediction_year:
+                    flash('Please select an area and year for prediction', 'danger')
+                    raise ValueError("Missing prediction parameters")
 
-                if not prediction_year or not prediction_year.isdigit():
-                    flash('Please enter a valid year for prediction', 'danger')
-                    raise ValueError("No valid year provided for prediction")
-
-                try:
-                    year = int(prediction_year)
-                    if year < current_year or year > 2050:
-                        flash(f'Prediction year must be between {current_year} and 2050', 'danger')
-                        raise ValueError("Year out of valid range")
-                except ValueError:
-                    flash('Invalid year format. Please enter a valid number.', 'danger')
-                    raise
-
+                year = int(prediction_year)
                 area = AreaOfInterest.query.get(selected_area_id)
-                if not area:
-                    flash('Selected area not found', 'danger')
-                    raise ValueError("Area not found")
-
                 region_name = area.region_name
-                region_code = area.region_code
 
-                processing_message = f"Processing prediction for {region_name} in {year}..."
+                # 1. Check if prediction already exists in DB
+                year_data = soil_erosion_estimates.query.filter_by(
+                    year=year,
+                    area_of_interest_id=selected_area_id
+                ).first()
 
-                # Load trained model
-                encoder, generator, region_to_idx = load_trained_model()
+                if not year_data:
+                    flash(f"Generating new prediction for {region_name}...")
+                    encoder, generator, region_to_idx = load_trained_model()
+                    
+                    # Ensure path is consistent with your RUSLE outputs
+                    output_dir = f"static/images/Predictions/{region_name}/{year}"
+                    os.makedirs(output_dir, exist_ok=True)
 
-                output_dir = f"static/images/{region_name}/prediction_{year}"
-                os.makedirs(output_dir, exist_ok=True)
+                    generated_dir = generate_rusle_factors(
+                        year, region_name, encoder, generator, torch.device('cpu'), output_dir, region_to_idx
+                    )
 
-                # Generate prediction factors
-                generated_dir = generate_rusle_factors(
-                    year, region_name, encoder, generator, torch.device('cpu'), output_dir, region_to_idx
-                )
+                    # 2. SAVE PREDICTION TO DATABASE
+                    year_data = soil_erosion_estimates(
+                        year=year,
+                        area_of_interest_id=selected_area_id,
+                        r_factor_image=os.path.join(output_dir, f"{year}_R.tif"),
+                        k_factor_image=os.path.join(output_dir, f"{year}_K.tif"),
+                        ls_factor_image=os.path.join(output_dir, f"{year}_LS.tif"),
+                        c_factor_image=os.path.join(output_dir, f"{year}_C.tif"),
+                        p_factor_image=os.path.join(output_dir, f"{year}_P.tif"),
+                        soil_loss_image=os.path.join(output_dir, f"{year}_soil_loss.tif"),
+                        # Set stats to None or a default 'pending' image if generator doesn't make them
+                        r_factor_stats=None, 
+                        soil_loss_stats=None 
+                    )
+                    db.session.add(year_data)
+                    db.session.commit()
 
-                # Collect all generated images
-                images = []
-                for factor in ['R', 'K', 'LS', 'C', 'P', 'soil_loss']:
-                    tif_path = os.path.join(generated_dir, f"{year}_{factor}.tif")
-                    if os.path.exists(tif_path):
-                        images.append({
-                            "label": f"{factor} Factor (Predicted {year})",
-                            "url": convert_image_to_jpg(tif_path),
-                            "stats_url": None
-                        })
-
-                # Set selected year for template use
+                # 3. CONVERT TIF TO JPG FOR BROWSER DISPLAY
+                # This ensures the "Broken Image" icon in your screenshot is fixed
+                images = [
+                    {"label": f"R Factor (Predicted {year})", "url": convert_image_to_jpg(year_data.r_factor_image), "stats_url": None},
+                    {"label": f"K Factor (Predicted {year})", "url": convert_image_to_jpg(year_data.k_factor_image), "stats_url": None},
+                    {"label": f"LS Factor (Predicted {year})", "url": convert_image_to_jpg(year_data.ls_factor_image), "stats_url": None},
+                    {"label": f"C Factor (Predicted {year})", "url": convert_image_to_jpg(year_data.c_factor_image), "stats_url": None},
+                    {"label": f"P Factor (Predicted {year})", "url": convert_image_to_jpg(year_data.p_factor_image), "stats_url": None},
+                    {"label": f"Soil Loss (Predicted {year})", "url": convert_image_to_jpg(year_data.soil_loss_image), "stats_url": None}
+                ]
+                
+                # Cleanup: remove entries where conversion failed
+                images = [img for img in images if img['url'] is not None]
                 selected_year = year
-                processing_message = f"Prediction completed for {region_name} in {year}!"
+                flash(f"Prediction for {region_name} displayed from database.")
 
-            except ValueError as e:
-                flash(f'Invalid input: {str(e)}', 'danger')
             except Exception as e:
-                flash(f'An error occurred: {str(e)}', 'danger')
-                import traceback
-                print(traceback.format_exc())
+                db.session.rollback()
+                flash(f'Error: {str(e)}', 'danger')
     
     # Get list of available years for the dropdown
     # For each area, get the available years
@@ -1334,6 +1560,7 @@ def visualization():
     
     return render_template(
         'visualization.html',
+        region_name=region_name,
         logged_in=logged_in,
         username=username,
         role=role,
@@ -1343,11 +1570,104 @@ def visualization():
         area_years=area_years,
         areas=areas,
         selected_area_id=selected_area_id,
-        processing_message=processing_message,
         model_mode=model_mode,
-        current_year=current_year
+        current_year=current_year,
+        is_admin_or_expert=is_admin_or_expert
     )
+
+
+@app.route('/manage_regions', methods=['GET', 'POST'])
+def manage_regions():
+    # Security: Only Admin or Expert roles allowed
+    if session.get('role') not in ['admin', 'expert']:
+        flash('Unauthorized! Only experts or admins can manage regions.', 'danger')
+        return redirect(url_for('home'))
+
+    logged_in = session.get('logged_in', False)
+    username = session.get('username', None)
+    role = session.get('role', None)
     
+    # Fetch all documented regions
+    areas = AreaOfInterest.query.all()
+
+    if request.method == 'POST':
+        action = request.form.get('action')
+
+        if action == 'add':
+            region_name = request.form.get('region_name')
+            description = request.form.get('description') # New field
+            center_lat = request.form.get('center_lat')
+            center_lon = request.form.get('center_lon')
+            distance_input = request.form.get('distance')
+
+            # Uniqueness check for Region Name
+            existing_area = AreaOfInterest.query.filter_by(region_name=region_name).first()
+            if existing_area:
+                flash(f'Error: Region "{region_name}" already exists.', 'danger')
+            else:
+                try:
+                    # COORDINATE LOGIC
+                    lat_val = float(center_lat)
+                    lon_val = float(center_lon)
+                    dist_val = float(distance_input) / 2 # Half side length
+                    
+                    # Convert distance from km to degrees
+                    lat_offset = dist_val / 111.32
+                    lon_offset = dist_val / (111.32 * math.cos(math.radians(lat_val)))
+
+                    # Create square polygon coordinates for Google Earth Engine
+                    coords = [
+                        [[lon_val - lon_offset, lat_val - lat_offset],
+                        [lon_val - lon_offset, lat_val + lat_offset],
+                        [lon_val + lon_offset, lat_val + lat_offset],
+                        [lon_val + lon_offset, lat_val - lat_offset],
+                        [lon_val - lon_offset, lat_val - lat_offset]]
+                    ]
+                    
+                    region_code = f"ee.Geometry.Polygon({coords})"
+                    
+                    new_area = AreaOfInterest(
+                        region_name=region_name,
+                        region_code=region_code,
+                        description=description
+                    )
+                    db.session.add(new_area)
+                    db.session.commit()
+                    flash('New region and EE geometry documented successfully!', 'success')
+                except Exception as e:
+                    db.session.rollback()
+                    flash(f'Error processing coordinates: {str(e)}', 'danger')
+                    
+            return redirect(url_for('manage_regions'))
+
+        elif action == 'delete':
+            area_id = request.form.get('area_id')
+            force_delete = request.form.get('force') == 'true'
+            
+            # Check for existing reports in soil_erosion_estimates
+            existing_reports = soil_erosion_estimates.query.filter_by(area_of_interest_id=area_id).all()
+            
+            if existing_reports and not force_delete:
+                # If reports exist and user hasn't confirmed "Force Delete"
+                flash(f'Warning: This region has {len(existing_reports)} saved erosion estimates.', 'warning')
+                return render_template('manage_regions.html', 
+                                       logged_in=logged_in, username=username, role=role, 
+                                       areas=areas, confirm_delete_id=int(area_id))
+
+            # If no reports OR user clicked "Confirm Delete Everything"
+            if force_delete:
+                soil_erosion_estimates.query.filter_by(area_of_interest_id=area_id).delete()
+            
+            AreaOfInterest.query.filter_by(id=area_id).delete()
+            db.session.commit()
+            flash('Region removed from the system.', 'success')
+            return redirect(url_for('manage_regions'))
+
+    return render_template('manage_regions.html', 
+                           logged_in=logged_in, 
+                           username=username, 
+                           role=role, 
+                           areas=areas)
 ###############################################################################################################################################################################################
 #                                                                                                                                                                                             #
 ###############################################################################################################################################################################################
@@ -1374,6 +1694,14 @@ def clean_text(text):
 
 
 def convert_image_to_jpg(image_path):
+    if not image_path:  # Add this check
+        return None
+    if not os.path.exists(image_path):
+        # Try adding 'static/' prefix if it's missing
+        if not image_path.startswith('static/') and os.path.exists('static/' + image_path):
+            image_path = 'static/' + image_path
+        else:
+            return None # Skip if file simply isn't there
     try:
         # Open the TIF image
         image = Image.open(image_path)

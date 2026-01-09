@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    .notif-card {
+        border-radius: 15px;
+        transition: all 0.3s ease;
+        border-left: 5px solid #dee2e6;
+    }
+    .notif-card.unread-border {
+        border-left: 5px solid #0d6efd;
+        background-color: #f8faff;
+    }
+    .status-badge {
+        font-size: 0.7rem;
+        font-weight: 700;
+        padding: 0.4rem 0.8rem;
+        border-radius: 50px;
+        text-transform: uppercase;
+    }
+    .notif-box {
+        background: #ffffff;
+        border: 1px solid #eee;
+        padding: 1.5rem;
+        margin-bottom: 1rem;
+    }
+</style>
+
+<div class="container py-5">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="fw-bold">Notifications 
+            {% if unread_count > 0 %}
+            <span class="badge bg-danger rounded-pill fs-6">{{ unread_count }}</span>
+            {% endif %}
+        </h1>
+        {% if role != 'admin' %}
+        <button class="btn btn-dark rounded-pill px-4" data-bs-toggle="modal" data-bs-target="#requestModal">
+            <i class="fas fa-plus me-2"></i>New Request
+        </button>
+        {% endif %}
+    </div>
+
+    <div class="row">
+        <div class="col-lg-10 mx-auto">
+            {% for n in notifications | sort(attribute='timestamp', reverse=True) %}
+            <div class="notif-card notif-box shadow-sm {% if not n.is_read %}unread-border{% endif %}">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div class="flex-grow-1">
+                        <div class="mb-2">
+                            {% if n.sender_id == user_id %}
+                                <span class="badge bg-info text-dark status-badge">Sent by Me</span>
+                            {% else %}
+                                <span class="badge bg-secondary status-badge">From: {{ n.sender.username }}</span>
+                            {% endif %}
+                            
+                            <span class="ms-2 status-badge {% if n.is_completed %}bg-success{% else %}bg-warning text-dark{% endif %}">
+                                {{ 'Completed' if n.is_completed else 'Pending' }}
+                            </span>
+                        </div>
+
+                        <h5 class="text-dark mb-1">{{ n.content | safe }}</h5>
+                        <small class="text-muted">
+                            <i class="far fa-clock me-1"></i>{{ n.timestamp.strftime('%d %b, %H:%M') }}
+                        </small>
+                    </div>
+
+                    <div class="ms-3 d-flex gap-2">
+                        {% if n.recipient_role == role and not n.is_completed %}
+                        <form method="POST">
+                            <input type="hidden" name="notif_id" value="{{ n.id }}">
+                            <input type="hidden" name="action" value="complete">
+                            <button type="submit" class="btn btn-sm btn-success rounded-pill px-3">Attend</button>
+                        </form>
+                        {% endif %}
+
+                        {% if role == 'admin' or (role == 'expert' and (n.sender_id == user_id or n.recipient_role == 'expert')) %}
+                        <form method="POST" onsubmit="return confirm('Delete this notification?');">
+                            <input type="hidden" name="notif_id" value="{{ n.id }}">
+                            <input type="hidden" name="action" value="delete">
+                            <button type="submit" class="btn btn-sm btn-outline-danger rounded-circle">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </form>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% else %}
+            <div class="text-center py-5">
+                <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                <p class="text-muted">No notifications found.</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="requestModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 20px;">
+            <div class="modal-header border-0 bg-light">
+                <h5 class="fw-bold mb-0">New Request to {{ 'Admin' if role == 'expert' else 'Expert' }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST">
+                <div class="modal-body p-4">
+                    <input type="hidden" name="action" value="send_request">
+                    <textarea name="content" class="form-control border-0 bg-light" rows="5" placeholder="Describe your request..." required style="border-radius: 12px;"></textarea>
+                </div>
+                <div class="modal-footer border-0">
+                    <button type="submit" class="btn btn-primary w-100 rounded-pill fw-bold">Send Request</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

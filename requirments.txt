@@ -1,0 +1,14 @@
+flask==3.0.3
+flask-sqlalchemy==3.1.1
+werkzeug==3.0.4
+flask-ckeditor==0.5.1
+bleach==6.1.0
+pillow==11.1.0  # For PIL
+python-docx==1.1.2
+
+geemap
+pandas==2.2.3
+torch
+torchvision
+matplotlib
+numpy

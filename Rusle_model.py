@@ -5,6 +5,7 @@ import os
 import math
 import pandas as pd
 
+##ee.Authenticate()
 # Initialize Earth Engine
 ee.Initialize(project="ee-makhosanemorapeli02")
 

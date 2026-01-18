@@ -104,6 +104,9 @@ class soil_erosion_estimates(db.Model):
     # Changed unique constraint to be a combination of year and area
     __table_args__ = (db.UniqueConstraint('year', 'area_of_interest_id', name='_year_area_uc'),)
 # Add this after defining all your models
+###############################################################################################################################################################################################
+#                                                                                                                                                                                             #
+###############################################################################################################################################################################################
 
 
 # Home route
@@ -118,6 +121,10 @@ def home():
         return render_template('adhome.html', logged_in=logged_in, username=username, role=role, news_list=news_list)    
     else:
         return render_template('home.html', logged_in=logged_in, username=username, role=role, news_list=news_list)
+###############################################################################################################################################################################################
+#                                                                                                                                                                                             #
+###############################################################################################################################################################################################
+
 # Login route
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -139,6 +146,9 @@ def login():
         
         flash('Invalid credentials', 'danger')
     return render_template('login.html')
+###############################################################################################################################################################################################
+#                                                                                                                                                                                             #
+###############################################################################################################################################################################################
 
 # Admin: Manage Users
 @app.route('/manage_users', methods=['GET', 'POST'])
@@ -206,6 +216,10 @@ def manage_users():
             return redirect(url_for('manage_users'))
             
     return render_template('manage_users.html', logged_in=logged_in, username=username, role=role, users=users)
+###############################################################################################################################################################################################
+#                                                                                                                                                                                             #
+###############################################################################################################################################################################################
+
 # Admin: Manage News
 @app.route('/manage_news', methods=['GET', 'POST'])
 def manage_news():
@@ -345,6 +359,9 @@ def inject_notif_count():
         ).count()
         return dict(unread_count=count)
     return dict(unread_count=0)
+###############################################################################################################################################################################################
+#                                                                                                                                                                                             #
+###############################################################################################################################################################################################
 
 
 # Admin: Manage About Us
@@ -383,6 +400,9 @@ def manage_about():
                 flash('No content to delete!', 'warning')
     
     return render_template('manage_about.html',logged_in=logged_in, username=username, role=role, about_us=about_us)
+###############################################################################################################################################################################################
+#                                                                                                                                                                                             #
+###############################################################################################################################################################################################
 
 # About Us (Regular Users)
 @app.route('/about')
@@ -395,6 +415,9 @@ def about():
     role = session.get('role', None)
     about_us = AboutUs.query.first()
     return render_template('about.html', about_us=about_us,logged_in=logged_in, username=username, role=role)
+###############################################################################################################################################################################################
+#                                                                                                                                                                                             #
+###############################################################################################################################################################################################
 
 # Logout route
 @app.route('/logout')
@@ -403,38 +426,29 @@ def logout():
     flash('You have been logged out.', 'info')
     return redirect(url_for('home'))
 
-
-
-
-
-
-
-
-
+###############################################################################################################################################################################################
+#                                                                                                                                                                                             #
+###############################################################################################################################################################################################
 import os
 import shutil
 import re
 import logging
 from html import unescape
-from docx import Document
-from docx.shared import Inches, Pt, RGBColor
-from docx.enum.text import WD_ALIGN_PARAGRAPH
-from docx.enum.section import WD_ORIENT
-from docx.oxml.ns import qn
-from docx.oxml import OxmlElement
 import threading
 import time
+import requests  # Add this import if not already present
 
 # Create a mutex for file operations
 file_lock = threading.Lock()
+
 @app.route('/download_report/<int:report_id>')
 def download_report(report_id):
-    """
+    """ 
     Generate and download a report as a PDF document.
     
     Args:
         report_id (int): The ID of the report to download
-        
+    
     Returns:
         Flask response with the PDF file attachment
     """
@@ -449,7 +463,7 @@ def download_report(report_id):
         text = text.replace('\u2014', '-').replace('\u2013', '-') \
                    .replace('\u2018', "'").replace('\u2019', "'") \
                    .replace('\u201C', '"').replace('\u201D', '"') \
-                   .replace('\u2026', '...').replace('&nbsp;', ' ')
+                   .replace('\u2026', '...').replace(' ', ' ')
         # Remove HTML tags
         text = re.sub(r'<[^>]+>', '', text)
         # Unescape HTML entities
@@ -457,9 +471,9 @@ def download_report(report_id):
         # Add space to extremely long words (prevents rendering issues)
         text = re.sub(r'(\S{30,})', r'\1 ', text)
         return text.strip()
-
+    
     def get_image(img_url, temp_dir, idx, base_dir=None):
-        """
+        """ 
         Retrieve and save an image to the temp directory.
         
         Args:
@@ -467,13 +481,13 @@ def download_report(report_id):
             temp_dir (str): Directory to save the image
             idx (int): Index for naming the image file
             base_dir (str, optional): Base directory to resolve relative paths
-            
+        
         Returns:
             str or None: Path to the saved image or None if failed
         """
         if not img_url:
             return None
-            
+        
         # Acquire lock for file operations
         with file_lock:
             img_path = os.path.join(temp_dir, f'image_{idx}.jpg')
@@ -495,15 +509,12 @@ def download_report(report_id):
                 if img_url and '_stats' in img_url:
                     # Extract the actual image path from stats path
                     img_path_from_stats = img_url.replace('_stats', '')
-                    
                     # Try different file extensions if needed
                     possible_exts = ['.png', '.jpg', '.jpeg']
-                    
                     for ext in possible_exts:
                         # Strip existing extension and add new one
                         base_img_path = os.path.splitext(img_path_from_stats)[0]
                         test_path = f"{base_img_path}{ext}"
-                        
                         if os.path.exists(test_path):
                             logging.info(f"Found stats image alternative at: {test_path}")
                             shutil.copy2(test_path, img_path)
@@ -511,7 +522,6 @@ def download_report(report_id):
                 
                 # Handle relative paths - try multiple possible locations
                 possible_paths = []
-                
                 # If base_dir is provided, try joining with base_dir first
                 if base_dir:
                     possible_paths.append(os.path.join(base_dir, os.path.basename(img_url)))
@@ -525,9 +535,8 @@ def download_report(report_id):
                     # For filenames only, try to construct the full path
                     if '/' not in img_url and base_dir:
                         region_name = base_dir.split(os.path.sep)[-2]  # Extract region name from base_dir
-                        year = base_dir.split(os.path.sep)[-1]         # Extract year from base_dir
-                        factor_part = os.path.splitext(img_url)[0]     # Extract factor name without extension
-                        
+                        year = base_dir.split(os.path.sep)[-1]  # Extract year from base_dir
+                        factor_part = os.path.splitext(img_url)[0]  # Extract factor name without extension
                         # Try constructing paths like static/images/RusleOutputs/Mphosong/2011/2011_R_stats.png
                         constructed_path = os.path.join('static', 'images', 'RusleOutputs', region_name, year, f"{year}_{factor_part}.png")
                         possible_paths.append(constructed_path)
@@ -558,42 +567,37 @@ def download_report(report_id):
                 # If we can't find the image, try to extract image path from stats string
                 # This is a fallback mechanism for the case shown in the screenshot
                 if img_url and 'stats' in img_url.lower():
-                    # Try to extract image path from the stats string (assuming it contains the path)
-                    # For example, if img_url is "static/images/RusleOutputs/Mphosong/2011/2011_R_stats.png"
-                    # Try to construct an image path like "static/images/RusleOutputs/Mphosong/2011/2011_R.png"
-                    try:
-                        base_name = os.path.basename(img_url)
-                        if '_stats' in base_name:
-                            image_name = base_name.replace('_stats', '')
-                            dir_path = os.path.dirname(img_url)
-                            image_path = os.path.join(dir_path, image_name)
-                            
-                            # Check if the constructed path exists
-                            if os.path.exists(image_path) and os.path.isfile(image_path):
-                                logging.info(f"Found image at: {image_path} (constructed from stats path)")
-                                shutil.copy2(image_path, img_path)
-                                return img_path
-                    except Exception as e:
-                        logging.error(f"Failed to extract image path from stats: {e}")
+                    # Try to extract path from the stats text if it contains a file path
+                    if 'static/images' in img_url:
+                        path_match = re.search(r'(static/images/\S+)', img_url)
+                        if path_match:
+                            extracted_path = path_match.group(1)
+                            # Try to get the actual image path from the stats path
+                            if '_stats.png' in extracted_path:
+                                actual_img_path = extracted_path.replace('_stats.png', '.png')
+                                if os.path.exists(actual_img_path):
+                                    logging.info(f"Found image at: {actual_img_path} (constructed from stats path)")
+                                    shutil.copy2(actual_img_path, img_path)
+                                    return img_path
                 
                 logging.warning(f"Image not found at any path: {possible_paths}")
                 return None
-                
+            
             except Exception as e:
                 logging.error(f"Image processing failed: {img_url} - {str(e)}")
                 return None
-
+    
     try:
         # Fetch DB entries
         report = Report.query.get_or_404(report_id)
-        erosion_data = soil_erosion_estimates.query.get(report.soil_loss_id)
+        erosion_data = db.session.get(soil_erosion_estimates, report.soil_loss_id)
         if not erosion_data:
             return "Erosion data not found", 404
-            
+        
         # Get the associated area of interest to access region name
         area_info = None
         if erosion_data.area_of_interest_id:
-            area_info = AreaOfInterest.query.get(erosion_data.area_of_interest_id)
+            area_info = db.session.get(AreaOfInterest, erosion_data.area_of_interest_id)
         
         # Get region name from area_info if available
         region_name = area_info.region_name if area_info else "Not Specified"
@@ -611,21 +615,21 @@ def download_report(report_id):
                 if not os.path.exists(base_dir):
                     logging.warning(f"Alternative base directory also does not exist: {base_dir}")
                     base_dir = None
-
+        
+        # Get region name and year for constructing image paths if needed
+        region_part = region_name.replace(' ', '_')
+        year_part = str(erosion_data.year)
+        
         # Collect images and their data - now including AOI image
         images = []
         
         # First, add the AOI image if available
         if erosion_data.aoi_image:
             images.append({
-                "url": erosion_data.aoi_image, 
-                "label": "Area of Interest", 
+                "url": erosion_data.aoi_image,
+                "label": "Area of Interest",
                 "stats": ""
             })
-            
-        # Get region name and year for constructing image paths if needed
-        region_part = region_name.replace(' ', '_')
-        year_part = str(erosion_data.year)
         
         # Add RUSLE factor images
         factors = [
@@ -641,21 +645,17 @@ def download_report(report_id):
             img_url = getattr(erosion_data, attr, None)
             if img_url:
                 # If the image URL doesn't seem to be a complete path, try to construct it
-                if img_url and not img_url.startswith(('http://', 'https://', '/', 'static')):
+                if not img_url.startswith(('http://', 'https://', '/', 'static')):
                     # Extract the factor code from attribute name (r_factor_image -> R)
-                    factor_code = attr[0].upper() if attr else ""
-                    
-                    # For soil_loss_image, use special handling
+                    factor_code = attr.split('_factor_image')[0].upper() if '_factor_image' in attr else ""
                     if attr == "soil_loss_image":
                         factor_code = "soil_loss"
-                    
                     # Try to construct full path based on pattern from example
                     constructed_path = f"static/images/RusleOutputs/{region_part}/{year_part}/{year_part}_{factor_code}.png"
                     logging.info(f"Original image URL: {img_url}, constructed path: {constructed_path}")
                     img_url = constructed_path
-                
-                images.append({"url": img_url, "label": label, "stats": stats})
-
+                images.append({"url": img_url, "label": label, "stats": clean_text(stats)})
+        
         # Create temporary directory for image processing
         temp_dir = tempfile.mkdtemp()
         
@@ -663,52 +663,38 @@ def download_report(report_id):
         processed_images = []
         for idx, img in enumerate(images):
             img_path = get_image(img['url'], temp_dir, idx, base_dir)
-            
-            # For stats paths, attempt additional fallback approach directly from the stats string
-            if not img_path and 'stats' in img.get('stats', ''):
-                stats_text = img.get('stats', '')
-                # Try to extract path from stats text if it contains a file path
-                if 'static/images' in stats_text:
-                    path_match = re.search(r'(static/images/\S+)', stats_text)
-                    if path_match:
-                        extracted_path = path_match.group(1)
-                        # Try to get the actual image path from the stats path
-                        if '_stats.png' in extracted_path:
-                            actual_img_path = extracted_path.replace('_stats.png', '.png')
-                            if os.path.exists(actual_img_path):
-                                shutil.copy2(actual_img_path, os.path.join(temp_dir, f'image_{idx}.jpg'))
-                                img_path = os.path.join(temp_dir, f'image_{idx}.jpg')
-            
             processed_images.append({
                 "path": img_path,
                 "label": img['label'],
-                "stats": clean_text(img.get('stats', '')),  # Clean the stats text
+                "stats": img.get('stats', ''),
                 "url": img['url']
             })
-
+        
         # Create PDF document with enhanced formatting
         from reportlab.lib.pagesizes import landscape, letter
         from reportlab.lib import colors
         from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
         from reportlab.lib.units import inch
         from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image, Table, TableStyle, PageBreak
-        from reportlab.platypus.tableofcontents import TableOfContents
         from reportlab.lib.enums import TA_CENTER, TA_LEFT
         
         # Create a BytesIO object to store the PDF
         output = BytesIO()
         
-        # Create the PDF document
+        # Create the PDF document with reduced margins to provide more space
         doc = SimpleDocTemplate(
-            output, 
+            output,
             pagesize=landscape(letter),
             title=f"Soil Erosion Report {report_id}",
-            author=report.author
+            author=report.author,
+            leftMargin=0.5*inch,
+            rightMargin=0.5*inch,
+            topMargin=0.5*inch,
+            bottomMargin=1*inch  # Increased bottom margin slightly for footer
         )
         
         # Define styles
         styles = getSampleStyleSheet()
-        
         # Create custom styles
         title_style = ParagraphStyle(
             'Title',
@@ -718,7 +704,6 @@ def download_report(report_id):
             spaceAfter=24,
             fontName='Helvetica-Bold'
         )
-        
         subtitle_style = ParagraphStyle(
             'Subtitle',
             parent=styles['Heading1'],
@@ -727,7 +712,6 @@ def download_report(report_id):
             spaceAfter=12,
             fontName='Helvetica-Bold'
         )
-        
         info_style = ParagraphStyle(
             'Info',
             parent=styles['Normal'],
@@ -735,7 +719,6 @@ def download_report(report_id):
             fontSize=12,
             spaceAfter=24
         )
-        
         heading1_style = ParagraphStyle(
             'Heading1',
             parent=styles['Heading1'],
@@ -743,7 +726,6 @@ def download_report(report_id):
             spaceAfter=12,
             fontName='Helvetica-Bold'
         )
-        
         heading2_style = ParagraphStyle(
             'Heading2',
             parent=styles['Heading2'],
@@ -751,7 +733,6 @@ def download_report(report_id):
             spaceAfter=10,
             fontName='Helvetica-Bold'
         )
-        
         normal_style = ParagraphStyle(
             'Normal',
             parent=styles['Normal'],
@@ -759,7 +740,6 @@ def download_report(report_id):
             spaceAfter=12,
             leading=14  # Improved line spacing
         )
-        
         # Create style for statistics text
         stats_style = ParagraphStyle(
             'Statistics',
@@ -784,47 +764,17 @@ def download_report(report_id):
         # Add page break after cover
         content.append(PageBreak())
         
-        # Add table of contents heading
-        content.append(Paragraph('Table of Contents', heading1_style))
-        content.append(Spacer(1, 0.2*inch))
-        
-        # Build the TOC entries manually
-        toc_entries = ["Executive Summary", "Analysis"]
-        
-        # Add Area of Interest entry if that image exists
-        if any(img["label"] == "Area of Interest" and img["path"] for img in processed_images):
-            toc_entries.append("Area of Interest")
-            
-        toc_entries.extend(["Soil Erosion Data", "Factor Analysis"])
-        
-        if erosion_data.soil_loss_detailed_stats:
-            toc_entries.append("Detailed Soil Loss Statistics")
-        
-        toc_entries.append("Conclusion")
-        
-        # Create manual TOC
-        for i, entry in enumerate(toc_entries):
-            toc_text = f"{i+1}. {entry}"
-            toc_para = Paragraph(toc_text, normal_style)
-            content.append(toc_para)
-        
-        content.append(PageBreak())
-        
         # Add executive summary
         content.append(Paragraph('Executive Summary', heading1_style))
-        
         summary_text = f"This report presents soil erosion analysis for {region_name}. "
         summary_text += "The analysis uses the RUSLE model to estimate soil loss based on various factors "
         summary_text += "including rainfall erosivity, soil erodibility, slope factors, cover management, and support practices."
-        
         content.append(Paragraph(summary_text, normal_style))
         
         # Add main analysis section
         content.append(Paragraph('Analysis', heading1_style))
-        
         # Clean and format the main content
         clean_content = clean_text(report.content)
-        
         # Split content into paragraphs for better formatting
         paragraphs = clean_content.split('\n\n')
         for para in paragraphs:
@@ -836,11 +786,9 @@ def download_report(report_id):
         if aoi_image:
             content.append(Paragraph('Area of Interest', heading1_style))
             content.append(Paragraph("The map below shows the area analyzed in this report.", normal_style))
-            
-            # Add AOI image if path exists
+            # Add AOI image if path exists, with reduced size to fit better
             if aoi_image["path"] and os.path.exists(aoi_image["path"]):
-                # Make the AOI image larger as it's the main overview map
-                img = Image(aoi_image["path"], width=9*inch, height=5*inch, kind='proportional')
+                img = Image(aoi_image["path"], width=9*inch, height=4*inch, kind='proportional')
                 img.hAlign = 'CENTER'
                 content.append(img)
             else:
@@ -848,7 +796,6 @@ def download_report(report_id):
         
         # Add soil erosion data section
         content.append(Paragraph('Soil Erosion Data', heading1_style))
-        
         # Introduction paragraph for the data section
         content.append(Paragraph("The following visualizations represent the key factors in the RUSLE soil erosion model. Each factor contributes to the overall soil loss estimation.", normal_style))
         
@@ -862,93 +809,101 @@ def download_report(report_id):
         for i in range(0, len(factor_images), 2):
             table_data = []
             row = []
-            
             for j in range(2):
                 if i + j < len(factor_images):
                     img_data = factor_images[i + j]
                     cell_content = []
-                    
                     # Add factor heading
                     cell_content.append(Paragraph(img_data["label"], heading2_style))
-                    
-                    # Add image if available
+                    # Add image if available with reduced size
                     if img_data["path"] and os.path.exists(img_data["path"]):
-                        img = Image(img_data["path"], width=4*inch, height=3*inch, kind='proportional')
+                        img = Image(img_data["path"], width=3.5*inch, height=2.5*inch, kind='proportional')
                         img.hAlign = 'CENTER'
                         cell_content.append(img)
                     else:
                         # Try alternate paths
                         factor_label = img_data["label"].split(' ')[0]  # Get R, K, LS, C, P, Soil
-                        factor_code = factor_label
-                        if factor_label == "Soil":
-                            factor_code = "soil_loss"
-                            
+                        factor_code = factor_label if factor_label != "Soil" else "soil_loss"
                         # Try to construct alternate paths
                         alt_paths = [
                             f"static/images/RusleOutputs/{region_part}/{year_part}/{year_part}_{factor_code}.png",
                             f"static/images/RusleOutputs/{region_part}/{year_part}/{factor_code}.png",
                             f"static/images/RusleOutputs/{region_part}/{year_part}/{year_part}_{factor_label}.png",
                         ]
-                        
                         image_found = False
                         for alt_path in alt_paths:
                             if os.path.exists(alt_path):
-                                img = Image(alt_path, width=4*inch, height=3*inch, kind='proportional')
+                                img = Image(alt_path, width=3.5*inch, height=2.5*inch, kind='proportional')
                                 img.hAlign = 'CENTER'
                                 cell_content.append(img)
                                 image_found = True
                                 break
-                                
                         if not image_found:
                             cell_content.append(Paragraph("[Image unavailable]", normal_style))
                     
-                    # Add stats data differently - don't show the path
+                    # Add stats - check if it's a path to image or text
                     if img_data["stats"]:
-                        # If stats looks like a path, don't show it, instead show a generic message
-                        if 'static/images' in img_data["stats"] or '_stats.png' in img_data["stats"]:
-                            stats_text = "Statistics: Data available in source system"
-                        else: 
-                            stats_text = f"Statistics: {img_data['stats']}"
-                            
-                        cell_content.append(Paragraph(stats_text, stats_style))
-                    
+                        if '_stats.png' in img_data["stats"] or 'static/images' in img_data["stats"]:
+                            # Treat as image path with reduced size
+                            stats_path = get_image(img_data["stats"], temp_dir, f"stats_{i+j}", base_dir)
+                            if stats_path and os.path.exists(stats_path):
+                                stats_img = Image(stats_path, width=3.5*inch, height=1.5*inch, kind='proportional')
+                                stats_img.hAlign = 'CENTER'
+                                cell_content.append(stats_img)
+                            else:
+                                cell_content.append(Paragraph("[Statistics image unavailable]", stats_style))
+                        else:
+                            # Treat as text
+                            stats_text = f"Statistics: {clean_text(img_data['stats'])}"
+                            cell_content.append(Paragraph(stats_text, stats_style))
                     row.append(cell_content)
                 else:
                     # Empty cell for odd number of images
                     row.append([])
-            
             table_data.append(row)
             
-            # Create the table
-            col_widths = [4.5*inch, 4.5*inch]
+            # Create the table with adjusted column widths
+            col_widths = [4*inch, 4*inch]
             table = Table(table_data, colWidths=col_widths)
-            
-            # Style the table
+            # Style the table with reduced padding
             table.setStyle(TableStyle([
                 ('VALIGN', (0, 0), (-1, -1), 'TOP'),
                 ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
                 ('GRID', (0, 0), (-1, -1), 1, colors.grey),
                 ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
-                ('LEFTPADDING', (0, 0), (-1, -1), 10),
-                ('RIGHTPADDING', (0, 0), (-1, -1), 10),
-                ('TOPPADDING', (0, 0), (-1, -1), 10),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 10),
+                ('LEFTPADDING', (0, 0), (-1, -1), 5),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 5),
+                ('TOPPADDING', (0, 0), (-1, -1), 5),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
             ]))
-            
             content.append(table)
-            content.append(Spacer(1, 0.3*inch))
+            content.append(Spacer(1, 0.2*inch))
         
         # Add detailed statistics if available
-        # if erosion_data.soil_loss_detailed_stats:
-        #     content.append(PageBreak())
-        #     content.append(Paragraph('Detailed Soil Loss Statistics', heading1_style))
+        if erosion_data.soil_loss_detailed_stats:
+            content.append(Paragraph('Detailed Soil Loss Statistics', heading1_style))
             
-        #     # Split detailed stats into paragraphs for better formatting
-        #     detailed_stats = clean_text(erosion_data.soil_loss_detailed_stats)
-        #     stats_paragraphs = detailed_stats.split('\n\n')
-        #     for para in stats_paragraphs:
-        #         if para.strip():
-        #             content.append(Paragraph(para.strip(), normal_style))
+            detailed_path = erosion_data.soil_loss_detailed_stats.strip()
+            
+            # Check if it's an image path (same logic as stats images)
+            if detailed_path and ('_detailed_analysis.png' in detailed_path or 'static/images' in detailed_path):
+                # Load the image into temp_dir using the existing helper
+                detailed_img_path = get_image(detailed_path, temp_dir, "detailed_stats", base_dir)
+                
+                if detailed_img_path and os.path.exists(detailed_img_path):
+                    # Render as image - adjust size to fit page (landscape letter = ~10" wide)
+                    detailed_img = Image(detailed_img_path, width=9*inch, height=5*inch, kind='proportional')
+                    detailed_img.hAlign = 'CENTER'
+                    content.append(detailed_img)
+                else:
+                    content.append(Paragraph("[Detailed statistics image unavailable]", normal_style))
+            else:
+                # Fallback: treat as text (in case someone stored actual text)
+                detailed_stats = clean_text(detailed_path)
+                stats_paragraphs = detailed_stats.split('\n\n')
+                for para in stats_paragraphs:
+                    if para.strip():
+                        content.append(Paragraph(para.strip(), normal_style))
         
         # Add conclusion
         content.append(Paragraph('Conclusion', heading1_style))
@@ -958,7 +913,7 @@ def download_report(report_id):
         
         # Build the PDF
         doc.build(
-            content, 
+            content,
             onFirstPage=lambda canvas, doc: canvas.drawCentredString(
                 doc.width/2, 0.5*inch, f"Soil Erosion Report {report_id} | Page {canvas.getPageNumber()}"
             ),
@@ -970,7 +925,7 @@ def download_report(report_id):
         # Log performance metrics
         processing_time = time.time() - start_time
         logging.info(f"Report {report_id} generated in {processing_time:.2f} seconds")
-
+        
         # Reset file pointer to beginning
         output.seek(0)
         
@@ -988,11 +943,11 @@ def download_report(report_id):
             as_attachment=True,
             mimetype='application/pdf'
         )
-
+    
     except Exception as e:
         logging.exception(f"Report generation failed: {str(e)}")
         return f"Error generating report: {str(e)}", 500
-        
+    
     finally:
         # Clean up temporary files
         if 'temp_dir' in locals():
@@ -1192,7 +1147,10 @@ def add_report():
         region_name=region_name
     )
 
-
+###############################################################################################################################################################################################
+#                                                                                                                                                                                             #
+###############################################################################################################################################################################################
+   
 @app.route('/manage_data', methods=['GET', 'POST'])
 def manage_data():
     logged_in = session.get('logged_in', False)
@@ -1236,7 +1194,10 @@ def manage_data():
                            logged_in=logged_in,
                            username=username,
                            role=role)
-
+###############################################################################################################################################################################################
+#                                                                                                                                                                                             #
+###############################################################################################################################################################################################
+   
 
 
 @app.route('/register', methods=['GET', 'POST'])
@@ -1447,7 +1408,7 @@ def visualization():
                         p_factor_stats=f"{output_dir}/{selected_year}_P_stats.png",
                         soil_loss_stats=f"{output_dir}/{selected_year}_soil_loss_stats.png",
                         soil_loss_detailed_stats=f"{output_dir}/{selected_year}_soil_loss_detailed_analysis.png",
-                        aoi_image=f"{output_dir}/aoi_visualization/{region_name}_terrain.tif"
+                        aoi_image=f"{output_dir}/aoi_visualization/{region_name}_satellite_labeled.png"
                     )
                     db.session.add(year_data)
                     db.session.commit()
@@ -1574,7 +1535,10 @@ def visualization():
         current_year=current_year,
         is_admin_or_expert=is_admin_or_expert
     )
-
+###############################################################################################################################################################################################
+#                                                                                                                                                                                             #
+###############################################################################################################################################################################################
+   
 
 @app.route('/manage_regions', methods=['GET', 'POST'])
 def manage_regions():
@@ -1694,24 +1658,49 @@ def clean_text(text):
 
 
 def convert_image_to_jpg(image_path):
-    if not image_path:  # Add this check
+    if not image_path:  # Check if path is provided
         return None
+    
     if not os.path.exists(image_path):
         # Try adding 'static/' prefix if it's missing
         if not image_path.startswith('static/') and os.path.exists('static/' + image_path):
             image_path = 'static/' + image_path
         else:
-            return None # Skip if file simply isn't there
+            return None  # Skip if file doesn't exist
+    
     try:
-        # Open the TIF image
+        # Get file extension
+        file_ext = os.path.splitext(image_path)[1].lower()
+        
+        # If already PNG, return as PNG (don't convert)
+        if file_ext == '.png':
+            with open(image_path, 'rb') as f:
+                png_data = f.read()
+            return f'data:image/png;base64,{base64.b64encode(png_data).decode()}'
+        
+        # Open the image
         image = Image.open(image_path)
-
-        # Convert the image to JPEG format
+        
+        # If image has transparency (RGBA or LA), convert to RGB
+        if image.mode in ('RGBA', 'LA', 'P'):
+            # Create a white background
+            background = Image.new('RGB', image.size, (255, 255, 255))
+            # Paste the image on the background (handles transparency)
+            if image.mode == 'P':
+                image = image.convert('RGBA')
+            background.paste(image, mask=image.split()[-1] if image.mode in ('RGBA', 'LA') else None)
+            image = background
+        elif image.mode != 'RGB':
+            # Convert any other mode to RGB
+            image = image.convert('RGB')
+        
+        # Convert to JPEG
         jpg_image = BytesIO()
-        image.save(jpg_image, format='JPEG')
-
-        # Return the JPEG image data as a URL
+        image.save(jpg_image, format='JPEG', quality=95)
+        
+        # Return as base64
         return f'data:image/jpeg;base64,{base64.b64encode(jpg_image.getvalue()).decode()}'
+        
     except Exception as e:
         flash(f'Error converting image: {str(e)}', 'danger')
         return None

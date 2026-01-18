@@ -1,0 +1,48 @@
+============================================================
+MMF SOIL EROSION ANALYSIS REPORT
+Region: Thaba-Bosiu
+Year: 2023
+============================================================
+
+SUMMARY STATISTICS:
+----------------------------------------
+
+MMF_Soil_Loss:
+  Mean: 0.50 Mg/ha/yr
+  Max:  1.07 Mg/ha/yr
+  Min:  0.00 Mg/ha/yr
+
+Runoff:
+  Mean: 492.82 mm
+  Max:  500.00 mm
+  Min:  454.18 mm
+
+NDVI:
+  Mean: 0.550
+  Max:  0.746
+  Min:  0.354
+
+============================================================
+INTERPRETATION GUIDE:
+----------------------------------------
+
+Soil Loss Categories:
+  <1 Mg/ha/yr:   Very Low (natural background rate)
+  1-5 Mg/ha/yr:  Low (sustainable for most soils)
+  5-10 Mg/ha/yr: Moderate (requires attention)
+  10-20 Mg/ha/yr: High (needs conservation measures)
+  >20 Mg/ha/yr:  Severe (urgent intervention needed)
+
+NDVI Interpretation:
+  <0.2: Bare soil or very sparse vegetation
+  0.2-0.4: Sparse vegetation (grasslands, shrubs)
+  0.4-0.6: Moderate vegetation (healthy grasslands)
+  0.6-0.8: Dense vegetation (forests, thickets)
+  >0.8: Very dense vegetation
+
+Runoff Interpretation:
+  <50 mm:   Very Low (good infiltration)
+  50-100 mm: Low
+  100-200 mm: Moderate
+  200-300 mm: High
+  >300 mm:   Very High (poor infiltration)

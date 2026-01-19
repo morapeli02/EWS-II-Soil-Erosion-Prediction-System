@@ -10,4 +10,6 @@ flask-wtf
 wtforms
 bleach
 python-docx
+torch
+torchvision
 matplotlib
